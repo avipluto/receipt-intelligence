@@ -79,9 +79,13 @@ def extract(ocr_lines: list[str], model: str = MODEL, timeout: int = 120) -> Ext
     except requests.RequestException as e:
         return Extraction(None, "", time.perf_counter() - start, f"ollama request failed: {e}")
 
-    data = resp.json()
-    raw_json = data["message"]["content"]
     seconds = time.perf_counter() - start
+    try:
+        # One bad reply must not kill a batch: treat a garbled body like any other failure.
+        data = resp.json()
+        raw_json = data["message"]["content"]
+    except (ValueError, KeyError, TypeError) as e:  # JSONDecodeError is a ValueError
+        return Extraction(None, resp.text[:500], seconds, f"ollama reply was not usable JSON: {e!r}")
 
     if data.get("prompt_eval_count", 0) >= NUM_CTX:
         # Ollama silently drops the start of the prompt when it overflows the context.
