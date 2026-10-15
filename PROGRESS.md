@@ -1,8 +1,8 @@
 # Project progress: Receipt Intelligence
 
-Last updated: 2026-10-15 · branch `master` · 102 tests passing
+Last updated: 2026-10-15 · branch `master` · 103 tests passing
 
-## Overall: about 90% done, about 10% left
+## Overall: about 95% done, about 5% left
 
 This is an estimate, weighted by effort, for the planned scope: extraction pipeline, evaluation, question answering, API, UI, Docker and docs.
 
@@ -16,31 +16,31 @@ This is an estimate, weighted by effort, for the planned scope: extraction pipel
 | Question answering (`ask.py`) + live test | ✅ done; router output validated in Python | 100% |
 | FastAPI backend | ✅ done, tested, run live | 100% |
 | Streamlit UI (Plotly charts, citations) | ✅ done, checked in the browser | 100% |
-| OCR line grouping fix (tilted photos) | 🟡 code done and committed; LLM eval (v9) running | 80% |
+| OCR line grouping fix (tilted photos) | ✅ done, measured (v9/v10 in `docs/02-extraction.md`) | 100% |
 | Docker | 🟡 Dockerfile + compose written; build **not verified** (Docker Desktop crashed mid-build) | 50% |
-| README / docs | 🟡 written; needs the v9 section and Docker confirmation | 85% |
+| README / docs | ✅ written; only the Docker note waits on verification | 95% |
 
 ## What's left (in order)
 
-1. **Finish the v9 eval** (OCR grouping fix, ~13 min) and add a v9 section to `docs/02-extraction.md`.
-   Already measured without the LLM: total on its label's line 78.9% → 83.2%, 4 receipts fixed, 0 broken.
-2. **Verify Docker:** restart Docker Desktop, run `docker compose up --build`, open http://localhost:8501, upload one receipt. Then remove the "not verified" note from the README.
-3. **Demo with real receipts:** CORD photos have no dates, so date questions ("last month") can't be shown yet. Ingest a few of your own receipts.
+1. **Verify Docker:** restart Docker Desktop, run `docker compose up --build`, open http://localhost:8501, upload one receipt. Then remove the "not verified" note from the README.
+2. **Demo with real receipts:** CORD photos have no dates, so date questions ("last month") can't be shown yet. Ingest a few of your own receipts.
 
 ## Optional next steps (outside the planned scope)
 
-- Lower false review flags (about 35% on real OCR). Most come from genuine item errors, so a per-field flag would be fairer.
+- Lower false review flags (about 33% on real OCR). Most come from genuine item errors, so a per-field flag would be fairer.
 - OCR misses the amounts entirely on some photos (CORD 013, 020). That needs a better detector or image preprocessing, not grouping.
 - A test split of your own receipts (Indian formats: GST, ₹), since CORD is Indonesian.
 
 ## Key results so far (real OCR pipeline, 100 CORD photos)
 
-| | v2 (start) | v8 (now) |
-|---|---|---|
-| Total correct | 79.6% | 87.4% |
-| Tax correct | 47.5% | 73.2% |
-| Wrong totals flagged for review | 68% | 92% |
-| Failed LLM calls | 2 | 0 |
+| | v2 (start) | v8 | v10 (now) |
+|---|---|---|---|
+| Total correct | 79.6% | 87.4% | **91.5%** |
+| Tax correct | 47.5% | 73.2% | **80.0%** |
+| Subtotal correct | 84.1% | 87.7% | **90.6%** |
+| Correct totals still flagged | 51.4% | 34.9% | **32.6%** |
+
+Remaining total errors (v10): 6 caused by OCR, 2 by the LLM.
 
 ## How to run (no Docker)
 

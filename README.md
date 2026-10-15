@@ -18,12 +18,12 @@ question ──► LLM picks a tested query ──► Python validates it ──
 
 ## Results (CORD v2 test, 100 real receipt photos)
 
-| | v2 (start) | v8 (now) |
+| | v2 (start) | v10 (now) |
 |---|---|---|
-| Total correct | 79.6% | **87.4%** |
-| Tax correct | 47.5% | **73.2%** |
-| Wrong totals flagged for review | 68% | **92%** |
-| Failed LLM calls | 2 | **0** |
+| Total correct | 79.6% | **91.5%** |
+| Tax correct | 47.5% | **80.0%** |
+| Subtotal correct | 84.1% | **90.6%** |
+| Correct totals still flagged for review | 51.4% | **32.6%** |
 
 On perfect (labelled) text the LLM gets 94.7% of totals and 95.1% of tax right. The remaining gap is mostly OCR.
 Write-ups: [model choice](docs/00-model-selection.md) · [OCR choice](docs/01-ocr-selection.md) · [extraction iterations and lessons](docs/02-extraction.md)

@@ -160,3 +160,9 @@ def test_subtotal_copied_as_total_is_still_flagged():
     # 1-2 fewer false alarms on CORD but would hide this classic misread.
     r = _receipt(subtotal="100.00", tax="10.00", total="100.00")
     assert any("subtotal" in i for i in r.issues)
+
+
+def test_change_equal_to_cash_does_not_zero_the_total():
+    # CORD 080 (v9): model copied the cash amount into change as well.
+    r = _receipt(subtotal="25.000", total="25.000", cash_paid="25.000", change="25.000")
+    assert r.total == Decimal("25000") and not any("non-positive" in i for i in r.issues)

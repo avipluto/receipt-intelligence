@@ -192,7 +192,9 @@ class Receipt(BaseModel):
         cash, change = self.cash_paid, self.change
         if cash is None:
             return
-        if change is not None and change > 0 and (self.total is None or self.total == cash):
+        # change >= cash is a misread (CORD 080: change copied as 25.000 = the cash), and
+        # "repairing" with it gave a total of 0. Only repair to a positive amount.
+        if change is not None and 0 < change < cash and (self.total is None or self.total == cash):
             self.total = cash - change
         elif self.total is None and not change:
             self.total = cash
