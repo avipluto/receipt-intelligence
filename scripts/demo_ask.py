@@ -23,6 +23,7 @@ QUESTIONS = [
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles default to cp1252; OCR text is any script
     ap = argparse.ArgumentParser()
     ap.add_argument("--images", default="data/cord/test/images")
     ap.add_argument("--n", type=int, default=8)

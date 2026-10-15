@@ -49,3 +49,58 @@ def test_grounded_rejects_invented_or_rounded_numbers():
     allowed = numbers_in('{"total": "892.30", "receipts": 3}')
     assert not grounded("You spent about 900.", allowed)
     assert not grounded("That's 297.43 per receipt.", allowed)  # computed, not in data
+
+
+def _junk_route(**kw):
+    base = dict(tool="total_spent", period="this_month", month=10, year=2026, n_days=3000000000000000,
+                start="2026-10-01", end="2026-10-15", merchant="Big Bazaar", item="butter")
+    base.update(kw)
+    return Route(**base)
+
+
+def test_sanitize_drops_period_the_question_never_mentions():
+    from receipt_ai.ask import sanitize_route
+
+    r = sanitize_route("How much did I spend in total?", _junk_route())
+    assert r.period == "all" and r.merchant is None and r.item is None
+    assert r.month is r.year is r.n_days is r.start is r.end is None
+
+
+def test_sanitize_keeps_values_found_in_the_question():
+    from receipt_ai.ask import sanitize_route
+
+    r = sanitize_route("How much did I spend at Big Bazaar in September 2025?", _junk_route(period="month", month=9, year=2025))
+    assert (r.period, r.month, r.year, r.merchant) == ("month", 9, 2025, "Big Bazaar")
+    r = sanitize_route("When did I last buy butter?", _junk_route(tool="find_items", period="all"))
+    assert r.item == "butter" and r.merchant is None
+    r = sanitize_route("Spending in the last 10 days", _junk_route(period="last_n_days", n_days=10))
+    assert r.n_days == 10
+
+
+def test_total_uses_template_not_llm(monkeypatch):
+    from receipt_ai import ask as ask_mod
+    from receipt_ai.queries import QueryResult
+
+    monkeypatch.setattr(ask_mod, "_chat", lambda *a, **k: pytest.fail("LLM should not phrase a single total"))
+    res = QueryResult(rows=[{"total": "552600", "receipts": 8}], receipt_ids=list(range(1, 9)))
+    text, used_llm = ask_mod.answer("How much in total?", Route(tool="total_spent", period="all"), res, "all time", date(2026, 10, 15))
+    assert not used_llm and "552600" in text and "8 receipt" in text
+
+
+def test_todays_date_in_answer_is_not_grounded(monkeypatch):
+    # Measured live: the model dated an undated receipt with today's date.
+    from receipt_ai import ask as ask_mod
+    from receipt_ai.queries import QueryResult
+
+    monkeypatch.setattr(ask_mod, "_chat", lambda *a, **k: "You bought COFFEE for 82000 on 2026-10-15.")
+    res = QueryResult(rows=[{"item": "COFFEE", "quantity": None, "line_total": "82000", "merchant": None, "date": None, "receipt_id": 5}], receipt_ids=[5])
+    text, used_llm = ask_mod.answer("Did I buy coffee?", Route(tool="find_items", period="all", item="coffee"), res, "all time", date(2026, 10, 15))
+    assert not used_llm and "2026" not in text and "None" not in text and "82000" in text
+
+
+def test_review_note_is_appended_by_python():
+    from receipt_ai.ask import REVIEW_NOTE, with_review_note
+    from receipt_ai.queries import QueryResult
+
+    assert with_review_note("You spent 10.", QueryResult(rows=[], needs_review=1)).endswith(REVIEW_NOTE)
+    assert with_review_note("You spent 10.", QueryResult(rows=[])) == "You spent 10."

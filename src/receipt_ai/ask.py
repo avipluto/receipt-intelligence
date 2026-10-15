@@ -119,6 +119,50 @@ def route(question: str, today: date) -> Route:
     return Route.model_validate_json(raw)
 
 
+_TIME_WORDS = re.compile(
+    r"\b(today|yesterday|week|weeks|month|months|year|years|day|days|since|ago|past|recent|recently|"
+    r"this|last|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|"
+    r"july|august|september|october|november|december|\d{4}|\d{1,2}[/-]\d{1,2})\b",
+    re.I,
+)
+_PERIOD_FIELDS = {"month": {"month", "year"}, "year": {"year"}, "last_n_days": {"n_days"}, "range": {"start", "end"}}
+
+
+def _mentioned(value: str | None, question: str) -> bool:
+    """Is this LLM-chosen value actually in the question? (fuzzy, so "Big Bazaar's" matches)."""
+    from rapidfuzz import fuzz
+
+    return bool(value) and fuzz.partial_ratio(value.lower(), question.lower()) >= 85
+
+
+def sanitize_route(question: str, r: Route) -> Route:
+    """Keep only what the question actually supports.
+
+    Measured live: with every key required (see route()), the 3B router fills every
+    field: merchant='all', item='butter' copied from the prompt's examples, n_days=3e15,
+    and period='this_month' for "How much did I spend in total?". Each of those
+    silently filters the SQL down to nothing. Python checks each value against the
+    question and drops the ones it can't trace back.
+    """
+    period = r.period
+    if period != "all" and not _TIME_WORDS.search(question):
+        period = "all"
+    keep = _PERIOD_FIELDS.get(period, set())
+    year = r.year if "year" in keep and r.year and str(r.year) in question else None
+    n_days = r.n_days if "n_days" in keep and r.n_days and str(r.n_days) in question else None
+    return Route(
+        tool=r.tool,
+        period=period,
+        month=r.month if "month" in keep else None,
+        year=year,
+        n_days=n_days,
+        start=r.start if "start" in keep else None,
+        end=r.end if "end" in keep else None,
+        merchant=r.merchant if r.tool != "find_items" and _mentioned(r.merchant, question) else None,
+        item=r.item if r.tool == "find_items" and _mentioned(r.item, question) else None,
+    )
+
+
 def run_tool(conn: sqlite3.Connection, r: Route, today: date) -> tuple[QueryResult, str]:
     start, end, period_text = resolve_period(r, today)
     if r.tool == "find_items":
@@ -153,6 +197,8 @@ def template_answer(r: Route, result: QueryResult, period_text: str) -> str:
     rows = result.rows
     if r.tool == "total_spent":
         where = f" at {r.merchant}" if r.merchant else ""
+        if not rows[0]["receipts"]:
+            return f"No receipts found{where} for {period_text}."
         return f"You spent {rows[0]['total']}{where} in {period_text}, across {rows[0]['receipts']} receipt(s)."
     if not rows:
         return f"No matching receipts found for {period_text}."
@@ -162,31 +208,53 @@ def template_answer(r: Route, result: QueryResult, period_text: str) -> str:
     if r.tool == "spend_by_month":
         return "Monthly spending: " + "; ".join(f"{x['month']}: {x['total']}" for x in rows) + "."
     if r.tool == "find_items":
-        return f"Found {len(rows)} matching item(s); latest: {rows[-1]['item']} on {rows[-1]['date']} at {rows[-1]['merchant']}."
+        last = rows[-1]
+        when = f" on {last['date']}" if last["date"] else ""
+        where = f" at {last['merchant']}" if last["merchant"] else ""
+        return f"Found {len(rows)} matching item(s); latest: {last['item']} ({last['line_total']}){when}{where}."
     return f"{len(rows)} receipt(s) in {period_text}."
+
+
+# One number or a plain list: the tested template says it exactly. LLM phrasing adds
+# nothing and (measured live) sometimes returned a bare "552600". The LLM is kept for
+# tools whose rows benefit from summarising.
+TEMPLATE_TOOLS = {"total_spent", "list_receipts"}
 
 
 def answer(question: str, r: Route, result: QueryResult, period_text: str, today: date) -> tuple[str, bool]:
     """Returns (answer_text, used_llm)."""
+    if r.tool in TEMPLATE_TOOLS:
+        return template_answer(r, result, period_text), False
     payload = result.to_dict()
     data = json.dumps({"period": period_text, **payload}, ensure_ascii=False)
     try:
         text = _chat([
             {"role": "system", "content": (
-                "Answer the user's spending question in 1-3 short sentences using ONLY the DATA. "
+                "Answer the user's spending question in 1-3 full sentences using ONLY the DATA. "
                 "Copy amounts exactly as they appear in DATA. Do not add, round or calculate. "
-                "If DATA has no rows or a zero total, say nothing matched. "
-                "If needs_review > 0, mention that some receipts need checking. Do not mention receipt ids."
+                "Do not add currency symbols. If DATA has no rows or a zero total, say nothing matched. "
+                "Do not mention receipt ids, review flags or field names."
             )},
-            {"role": "user", "content": f"Today is {today.isoformat()}.\nQUESTION: {question}\nDATA: {data}"},
+            # No "today" here: the period is already resolved into DATA, and measured live
+            # the model copied today's date into an answer about an undated receipt.
+            {"role": "user", "content": f"QUESTION: {question}\nDATA: {data}"},
         ])
     except requests.RequestException:
         return template_answer(r, result, period_text), False
 
-    allowed = numbers_in(data) | numbers_in(question) | numbers_in(today.isoformat())
+    allowed = numbers_in(data) | numbers_in(question)
     if not grounded(text, allowed):
         return template_answer(r, result, period_text), False
     return text.strip(), True
+
+
+REVIEW_NOTE = "Some of these receipts are flagged for review, so check them before relying on this."
+
+
+def with_review_note(text: str, result: QueryResult) -> str:
+    # Appended by Python, not asked of the LLM: measured live, a 3B model told to "end
+    # with" the note sometimes replied with ONLY the note and dropped the answer.
+    return f"{text} {REVIEW_NOTE}" if result.needs_review else text
 
 
 @dataclass
@@ -201,7 +269,8 @@ class Answer:
 
 def ask(conn: sqlite3.Connection, question: str, today: date | None = None) -> Answer:
     today = today or date.today()
-    r = route(question, today)
+    r = sanitize_route(question, route(question, today))
     result, period_text = run_tool(conn, r, today)
     text, used_llm = answer(question, r, result, period_text, today)
+    text = with_review_note(text, result)
     return Answer(question, text, r, result, period_text, used_llm)
