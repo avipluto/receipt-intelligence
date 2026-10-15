@@ -36,6 +36,10 @@ class RawReceipt(BaseModel):
     tax: str | None = Field(None, description="Total tax amount as printed")
     service_charge: str | None = Field(None, description="Service charge amount as printed")
     discount: str | None = Field(None, description="Bill-level discount amount as printed")
+    # Placed BEFORE total on purpose: keys are generated in order, so the model files
+    # the CASH amount here first instead of mistaking it for the total.
+    cash_paid: str | None = Field(None, description="Cash/amount handed over by the customer, as printed")
+    change: str | None = Field(None, description="Change given back, as printed")
     total: str | None = Field(None, description="Final amount paid, as printed")
     payment_method: str | None = None
 
@@ -133,6 +137,9 @@ class Receipt(BaseModel):
     tax: Decimal | None = None
     service_charge: Decimal | None = None
     discount: Decimal | None = None  # stored positive: the amount taken off
+    # Used only to cross-check the total; not stored.
+    cash_paid: Decimal | None = None
+    change: Decimal | None = None
     total: Decimal | None = None
     payment_method: str | None = None
     issues: list[str] = Field(default_factory=list, description="Consistency problems found by check()")
@@ -161,15 +168,34 @@ class Receipt(BaseModel):
             tax=parse_amount(raw.tax),
             service_charge=parse_amount(raw.service_charge),
             discount=abs(d) if (d := parse_amount(raw.discount)) is not None else None,
+            cash_paid=parse_amount(raw.cash_paid),
+            change=parse_amount(raw.change),
             total=parse_amount(raw.total),
             payment_method=clean_text(raw.payment_method),
         )
         # Only flag text that looks like an attempt at a date; "Not specified" and other
         # wordings of "missing" have no digits and simply mean no date.
+        r.reconcile_total()
         if raw.date and re.search(r"\d", raw.date) and r.date is None:
             r.issues.append(f"unparsed date: {raw.date!r}")
         r.issues.extend(r.check())
         return r
+
+    def reconcile_total(self) -> None:
+        """Fill or fix the total from the payment lines, in Python.
+
+        Measured (v6, CORD): the 3B model sometimes copies CASH as the total, or fills
+        cash/change and then leaves total null. Cash minus change *is* the bill, so
+        Python derives it. check() then verifies it against subtotal and items, so a
+        wrong repair is still flagged rather than trusted blindly.
+        """
+        cash, change = self.cash_paid, self.change
+        if cash is None:
+            return
+        if change is not None and change > 0 and (self.total is None or self.total == cash):
+            self.total = cash - change
+        elif self.total is None and not change:
+            self.total = cash
 
     def check(self, tolerance: Decimal = Decimal("0.02")) -> list[str]:
         """Arithmetic sanity checks. The LLM can misread; maths can't lie.
@@ -205,6 +231,11 @@ class Receipt(BaseModel):
                     f"total {self.total} != subtotal {self.subtotal} + tax {self.tax or 0}"
                     f" + service {self.service_charge or 0} - discount {self.discount or 0}"
                 )
+
+        # A second, independent path to the total: what was handed over minus what came back.
+        if self.cash_paid is not None and self.change is not None and self.total is not None:
+            if self.change > 0 and not close(self.total, self.cash_paid - self.change):
+                problems.append(f"total {self.total} != cash {self.cash_paid} - change {self.change}")
 
         if self.date and self.date > dt.date.today():
             problems.append(f"date {self.date} is in the future")

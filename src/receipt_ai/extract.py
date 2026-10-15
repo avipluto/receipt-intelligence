@@ -37,6 +37,7 @@ Rules:
   If several tax lines, copy the one total tax line. Service charge (SERVICE, SVC CHG) is NOT tax.
 - service_charge: the service charge amount (SERVICE, SVC CHG, SC), or null.
 - discount: a discount applied to the whole bill (DISCOUNT, DISC, VOUCHER), or null. Not item-level discounts.
+- cash_paid: the amount the customer handed over (CASH, TUNAI, PAID, CARD), or null. change: CHANGE / KEMBALI, or null.
 - Use null for anything not present. Never invent values."""
 
 

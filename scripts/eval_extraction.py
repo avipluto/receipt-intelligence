@@ -23,7 +23,7 @@ from rapidfuzz import fuzz
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from receipt_ai.extract import extract  # noqa: E402
-from receipt_ai.schema import parse_amount  # noqa: E402
+from receipt_ai.schema import RawReceipt, Receipt, parse_amount  # noqa: E402
 
 
 def match_items(pred: list[str], gold: list[str], threshold: int = 85) -> int:
@@ -55,7 +55,12 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=100)
     ap.add_argument("--tag", default="v1")
     ap.add_argument("--out", default="docs/extraction_results")
+    ap.add_argument("--rescore", metavar="RESULTS_JSON",
+                    help="re-run only the Python side (parsing + checks) on saved LLM outputs; seconds, not minutes")
     args = ap.parse_args()
+    if args.rescore:
+        rescore(args.rescore, args.data, args.tag, args.out)
+        return
 
     label_files = sorted(Path(args.data, "labels").glob("*.json"))[: args.limit]
     rows = []
@@ -76,22 +81,48 @@ def main() -> None:
                 continue
 
         result = extract(lines)
-        f, r = label["fields"], result.receipt
-        row = {"id": lf.stem, "seconds": round(result.seconds, 2), "error": result.error}
-        if r:
-            for key, attr in [("total", "total"), ("subtotal", "subtotal"), ("tax", "tax")]:
-                gold = gold_amount(f.get(f"{key}_price"))
-                row[f"{key}_ok"] = None if gold is None else r.__getattribute__(attr) == gold
-            pred_names = [it.name for it in r.items]
-            hits = match_items(pred_names, f["item_names"])
-            row.update(
-                item_hits=hits, item_pred=len(pred_names), item_gold=len(f["item_names"]),
-                flagged=r.needs_review, issues=r.issues,
-                pred_total=str(r.total), gold_total=f.get("total_price"),
-            )
+        r = result.receipt
+        row = {"id": lf.stem, "seconds": round(result.seconds, 2), "error": result.error, "raw_json": result.raw_json}
+        score_row(row, r, label["fields"])
         rows.append(row)
         print(f"[{i}/{len(label_files)}] {lf.stem} total_ok={row.get('total_ok')} {row['seconds']}s {row['error'] or ''}", flush=True)
 
+    write_summary(rows, args.tag, args.source, args.out)
+
+
+def score_row(row: dict, r, f: dict) -> None:
+    if r:
+        for key, attr in [("total", "total"), ("subtotal", "subtotal"), ("tax", "tax")]:
+            gold = gold_amount(f.get(f"{key}_price"))
+            row[f"{key}_ok"] = None if gold is None else r.__getattribute__(attr) == gold
+        pred_names = [it.name for it in r.items]
+        hits = match_items(pred_names, f["item_names"])
+        row.update(
+            item_hits=hits, item_pred=len(pred_names), item_gold=len(f["item_names"]),
+            flagged=r.needs_review, issues=r.issues,
+            pred_total=str(r.total), gold_total=f.get("total_price"),
+        )
+
+
+def rescore(results_path: str, data: str, tag: str, out: str) -> None:
+    """Python-only changes (parse_amount, reconcile_total, check) don't need the LLM
+    re-run: rebuild each Receipt from the saved raw_json and score it again."""
+    saved = json.loads(Path(results_path).read_text(encoding="utf-8"))
+    rows = []
+    for old in saved["rows"]:
+        f = json.loads(Path(data, "labels", f"{old['id']}.json").read_text(encoding="utf-8"))["fields"]
+        row = {k: old[k] for k in ("id", "seconds", "error", "raw_json") if k in old}
+        if "raw_json" not in old:
+            raise SystemExit(f"{results_path} has no raw_json (made before v6); re-run the LLM instead")
+        r = None
+        if not row["error"]:
+            r = Receipt.from_raw(RawReceipt.model_validate_json(row["raw_json"]))
+        score_row(row, r, f)
+        rows.append(row)
+    write_summary(rows, tag, saved["summary"]["source"], out)
+
+
+def write_summary(rows: list[dict], tag: str, source: str, out: str) -> None:
     ok = [r for r in rows if not r["error"]]
 
     def field(name):
@@ -100,8 +131,8 @@ def main() -> None:
     wrong_total = [r for r in ok if r.get("total_ok") is False]
     right_total = [r for r in ok if r.get("total_ok") is True]
     summary = {
-        "tag": args.tag,
-        "source": args.source,
+        "tag": tag,
+        "source": source,
         "receipts": len(rows),
         "valid_pct": pct([not r["error"] for r in rows]),
         "total_acc": pct(field("total_ok")),
@@ -114,8 +145,8 @@ def main() -> None:
         "sec_median": round(statistics.median(r["seconds"] for r in rows), 1),
     }
     print(json.dumps(summary))
-    Path(args.out).mkdir(parents=True, exist_ok=True)
-    Path(args.out, f"{args.tag}-{args.source}.json").write_text(
+    Path(out).mkdir(parents=True, exist_ok=True)
+    Path(out, f"{tag}-{source}.json").write_text(
         json.dumps({"summary": summary, "rows": rows}, indent=1, ensure_ascii=False), encoding="utf-8"
     )
 
