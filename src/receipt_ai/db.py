@@ -63,7 +63,8 @@ def to_cents(value: Decimal | None) -> int | None:
 
 
 def from_cents(value: int | None) -> Decimal | None:
-    return None if value is None else Decimal(value) / 100
+    # Always two places, so 120 shows as "120.00" everywhere (API, UI, LLM prompt).
+    return None if value is None else (Decimal(value) / 100).quantize(Decimal("0.01"))
 
 
 def file_sha256(path: str | Path) -> str:

@@ -104,3 +104,10 @@ def test_review_note_is_appended_by_python():
 
     assert with_review_note("You spent 10.", QueryResult(rows=[], needs_review=1)).endswith(REVIEW_NOTE)
     assert with_review_note("You spent 10.", QueryResult(rows=[])) == "You spent 10."
+
+
+def test_invented_currency_symbol_is_removed():
+    from receipt_ai.ask import strip_invented_currency
+
+    assert strip_invented_currency("I paid $909.00 for chicken.", '{"line_total": "909.00"}') == "I paid 909.00 for chicken."
+    assert strip_invented_currency("I paid Rp 909.00.", '{"currency": "Rp"}') == "I paid Rp 909.00."

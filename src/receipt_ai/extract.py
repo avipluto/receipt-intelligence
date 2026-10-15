@@ -10,6 +10,7 @@ schema.py, in ordinary Python.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 
@@ -18,7 +19,8 @@ from pydantic import ValidationError
 
 from .schema import RawReceipt, Receipt
 
-OLLAMA_URL = "http://localhost:11434"
+# In Docker, set OLLAMA_URL=http://host.docker.internal:11434 to reach Ollama on the host.
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 MODEL = "qwen2.5:3b"
 MAX_OUTPUT_TOKENS = 1500  # the longest correct CORD extraction is far below this
 NUM_CTX = 4096  # measured: ~2.3 GB VRAM on the RTX 2050, see docs/00-model-selection.md

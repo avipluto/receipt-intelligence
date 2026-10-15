@@ -245,7 +245,16 @@ def answer(question: str, r: Route, result: QueryResult, period_text: str, today
     allowed = numbers_in(data) | numbers_in(question)
     if not grounded(text, allowed):
         return template_answer(r, result, period_text), False
-    return text.strip(), True
+    return strip_invented_currency(text, data).strip(), True
+
+
+_CURRENCY = re.compile(r"(US\$|\$|€|£|₹|Rp\.?\s?)(?=\s?\d)")
+
+
+def strip_invented_currency(text: str, data: str) -> str:
+    # The prompt says "no currency symbols", yet the 3B model keeps writing "$909.00"
+    # for Indonesian receipts. A symbol the data doesn't contain is removed in Python.
+    return _CURRENCY.sub(lambda m: m.group(0) if m.group(1).strip() in data else "", text)
 
 
 REVIEW_NOTE = "Some of these receipts are flagged for review, so check them before relying on this."
