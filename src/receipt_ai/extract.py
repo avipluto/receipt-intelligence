@@ -77,7 +77,7 @@ def extract(ocr_lines: list[str], model: str = MODEL, timeout: int = 120, attemp
 
     Measured on the eval runs: ~2-4% of calls fail intermittently (Ollama 500s, or the
     model looping until it hits the cap), and the same receipt succeeds on a re-run.
-    Ollama's prompt cache makes GPU arithmetic depend on the previous request, so even
+    Ollama reuses its prompt cache across requests (likely making GPU arithmetic depend on the previous one), so even
     temperature 0 isn't perfectly repeatable. A single retry recovers these cheaply.
     """
     result = _extract_once(ocr_lines, model, timeout)

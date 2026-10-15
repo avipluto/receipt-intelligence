@@ -127,9 +127,11 @@ def test_wordy_missing_date_is_not_flagged_but_garbled_date_is():
 def test_cash_minus_change_cross_checks_total():
     # CORD 015: TOTAL 63.000, CASH 70.000, CHANGED 7.000.
     assert _receipt(total="63.000", cash_paid="70.000", change="7.000").issues == []
-    # A total that disagrees with cash - change (and isn't simply the cash) is flagged.
-    r = _receipt(total="65.000", cash_paid="70.000", change="7.000")
+    # Customer paid 63.000 net but the total says 60.000: contradiction, flagged.
+    r = _receipt(total="60.000", cash_paid="70.000", change="7.000")
     assert any("cash" in i for i in r.issues)
+    # CORD 014: a 100,000 coupon covered part of the bill, so cash - change < total. Fine.
+    assert _receipt(total="281,435", cash_paid="200,000", change="18,565").issues == []
     # Exact payment (change 0) says nothing about the total.
     assert _receipt(total="63.000", cash_paid="100.000", change="0").issues == []
 
@@ -144,4 +146,17 @@ def test_total_repaired_from_cash_and_change():
     assert _receipt(cash_paid="41,000").total == Decimal("41000")
     # A repair that contradicts the subtotal is still flagged, not trusted.
     r = _receipt(cash_paid="50,000", change="12,000", subtotal="30,000")
+    assert any("subtotal" in i for i in r.issues)
+
+
+def test_discount_may_already_be_inside_subtotal():
+    # CORD 031: the -85,500 item discount is already reflected in SUBTTL 85,500.
+    r = _receipt(subtotal="85,500", tax="18,126", service_charge="10,260", discount="85,500", total="113,886")
+    assert r.issues == []
+
+
+def test_subtotal_copied_as_total_is_still_flagged():
+    # Deliberately NOT accepting "tax-inclusive" totals (subtotal == total): it bought
+    # 1-2 fewer false alarms on CORD but would hide this classic misread.
+    r = _receipt(subtotal="100.00", tax="10.00", total="100.00")
     assert any("subtotal" in i for i in r.issues)

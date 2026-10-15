@@ -225,16 +225,22 @@ class Receipt(BaseModel):
         # Deliberately strict: a false "please check" costs the user seconds while a
         # silently wrong total corrupts every spending answer built on it.
         if self.subtotal is not None and self.total is not None:
-            expected = self.subtotal + (self.tax or 0) + (self.service_charge or 0) - (self.discount or 0)
-            if not close(self.total, expected):
+            base = self.subtotal + (self.tax or 0) + (self.service_charge or 0)
+            # A discount may already be inside the subtotal (item-level) or come after it,
+            # and the model can't always tell which: either reading is accepted.
+            candidates = [base, base - (self.discount or 0)]
+            if not any(close(self.total, c) for c in candidates):
                 problems.append(
                     f"total {self.total} != subtotal {self.subtotal} + tax {self.tax or 0}"
                     f" + service {self.service_charge or 0} - discount {self.discount or 0}"
                 )
 
         # A second, independent path to the total: what was handed over minus what came back.
+        # Paying LESS than the total in cash is fine (a coupon or card covered the rest);
+        # paying more and getting less change back than that is a contradiction.
         if self.cash_paid is not None and self.change is not None and self.total is not None:
-            if self.change > 0 and not close(self.total, self.cash_paid - self.change):
+            paid = self.cash_paid - self.change
+            if self.change > 0 and paid > self.total and not close(self.total, paid):
                 problems.append(f"total {self.total} != cash {self.cash_paid} - change {self.change}")
 
         if self.date and self.date > dt.date.today():
