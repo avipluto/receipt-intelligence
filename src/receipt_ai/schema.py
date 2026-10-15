@@ -34,11 +34,23 @@ class RawReceipt(BaseModel):
     items: list[RawItem] = Field(default_factory=list)
     subtotal: str | None = None
     tax: str | None = Field(None, description="Total tax amount as printed")
+    service_charge: str | None = Field(None, description="Service charge amount as printed")
+    discount: str | None = Field(None, description="Bill-level discount amount as printed")
     total: str | None = Field(None, description="Final amount paid, as printed")
     payment_method: str | None = None
 
 
 # ---------------------------------------------------------------- parsing
+
+_NULL_WORDS = {"", "null", "none", "n/a", "na", "-", "unknown", "not specified", "not available", "not found", "not present"}
+
+
+def clean_text(text: str | None) -> str | None:
+    """Small models sometimes write the *string* "null" instead of JSON null."""
+    if text is None or text.strip().lower() in _NULL_WORDS:
+        return None
+    return text.strip()
+
 
 _NOT_NUMBER = re.compile(r"[^\d.,\-]")
 
@@ -119,6 +131,8 @@ class Receipt(BaseModel):
     items: list[LineItem] = Field(default_factory=list)
     subtotal: Decimal | None = None
     tax: Decimal | None = None
+    service_charge: Decimal | None = None
+    discount: Decimal | None = None  # stored positive: the amount taken off
     total: Decimal | None = None
     payment_method: str | None = None
     issues: list[str] = Field(default_factory=list, description="Consistency problems found by check()")
@@ -130,9 +144,9 @@ class Receipt(BaseModel):
     @classmethod
     def from_raw(cls, raw: RawReceipt) -> "Receipt":
         r = cls(
-            merchant=(raw.merchant or "").strip() or None,
-            date=parse_date(raw.date),
-            currency=(raw.currency or "").strip() or None,
+            merchant=clean_text(raw.merchant),
+            date=parse_date(clean_text(raw.date)),
+            currency=clean_text(raw.currency),
             items=[
                 LineItem(
                     name=i.name.strip(),
@@ -145,10 +159,14 @@ class Receipt(BaseModel):
             ],
             subtotal=parse_amount(raw.subtotal),
             tax=parse_amount(raw.tax),
+            service_charge=parse_amount(raw.service_charge),
+            discount=abs(d) if (d := parse_amount(raw.discount)) is not None else None,
             total=parse_amount(raw.total),
-            payment_method=(raw.payment_method or "").strip() or None,
+            payment_method=clean_text(raw.payment_method),
         )
-        if raw.date and r.date is None:
+        # Only flag text that looks like an attempt at a date; "Not specified" and other
+        # wordings of "missing" have no digits and simply mean no date.
+        if raw.date and re.search(r"\d", raw.date) and r.date is None:
             r.issues.append(f"unparsed date: {raw.date!r}")
         r.issues.extend(r.check())
         return r
@@ -178,13 +196,15 @@ class Receipt(BaseModel):
             if not any(close(items_sum, t) for t in targets):
                 problems.append(f"items sum to {items_sum} but total is {self.total}")
 
-        # Deliberately strict: discounts and service charges also trip this, but a
-        # false "please check" costs the user seconds while a silently wrong total
-        # corrupts every spending answer built on it.
+        # Deliberately strict: a false "please check" costs the user seconds while a
+        # silently wrong total corrupts every spending answer built on it.
         if self.subtotal is not None and self.total is not None:
-            expected = self.subtotal + (self.tax or 0)
+            expected = self.subtotal + (self.tax or 0) + (self.service_charge or 0) - (self.discount or 0)
             if not close(self.total, expected):
-                problems.append(f"total {self.total} != subtotal {self.subtotal} + tax {self.tax or 0}")
+                problems.append(
+                    f"total {self.total} != subtotal {self.subtotal} + tax {self.tax or 0}"
+                    f" + service {self.service_charge or 0} - discount {self.discount or 0}"
+                )
 
         if self.date and self.date > dt.date.today():
             problems.append(f"date {self.date} is in the future")

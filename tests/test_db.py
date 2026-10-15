@@ -81,3 +81,21 @@ def test_failed_item_insert_rolls_back_receipt(conn, monkeypatch):
 def test_cents_rounding():
     assert db.to_cents(Decimal("5.455")) == 546  # half-up, not banker's rounding
     assert db.to_cents(None) is None
+
+
+def test_old_database_gets_new_columns(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE receipts (id INTEGER PRIMARY KEY, file_path TEXT NOT NULL, file_sha256 TEXT NOT NULL UNIQUE, "
+                "merchant TEXT, purchase_date TEXT, currency TEXT, subtotal_cents INTEGER, tax_cents INTEGER, "
+                "total_cents INTEGER, payment_method TEXT, needs_review INTEGER NOT NULL DEFAULT 0, "
+                "issues TEXT NOT NULL DEFAULT '[]', ocr_text TEXT NOT NULL, raw_json TEXT NOT NULL, "
+                "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    old.close()
+    conn = db.connect(path)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(receipts)")}
+    assert {"service_cents", "discount_cents"} <= cols
+    rid, _ = db.save_receipt(conn, Receipt(total=Decimal("10"), service_charge=Decimal("1")), file_path="x", sha256="s", ocr_lines=[], raw_json="{}")
+    assert db.load_receipt(conn, rid).service_charge == Decimal("1")

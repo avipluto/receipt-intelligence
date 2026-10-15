@@ -55,7 +55,7 @@ def test_parse_date(printed, expected):
 
 
 def test_unparseable_date_is_flagged_not_dropped_silently():
-    r = Receipt.from_raw(RawReceipt(date="sometime last week", total="10"))
+    r = Receipt.from_raw(RawReceipt(date="32/13/2026", total="10"))
     assert r.date is None
     assert any("unparsed date" in i for i in r.issues)
 
@@ -99,3 +99,26 @@ def test_missing_total_is_flagged():
 def test_blank_item_names_are_dropped():
     r = _receipt(items=[RawItem(name="  "), RawItem(name="Tea", line_total="20")], total="20")
     assert [i.name for i in r.items] == ["Tea"]
+
+
+def test_string_null_is_treated_as_missing():
+    from receipt_ai.schema import RawReceipt, Receipt
+
+    r = Receipt.from_raw(RawReceipt(merchant="null", date="null", currency="None", total="10.00"))
+    assert r.merchant is None and r.date is None and r.currency is None
+    assert not any("date" in i for i in r.issues)
+
+
+def test_service_charge_and_discount_balance_the_total():
+    # CORD 031: SUBTTL 85,500 + SVC CHG 10,260 + PB1 18,126 = TOTAL 113,886
+    r = _receipt(subtotal="85,500", service_charge="10,260", tax="18,126", total="113,886")
+    assert r.issues == []
+    r = _receipt(subtotal="100.00", discount="-10.00", tax="9.00", total="99.00")
+    assert r.discount == Decimal("10.00") and r.issues == []
+
+
+def test_wordy_missing_date_is_not_flagged_but_garbled_date_is():
+    from receipt_ai.schema import RawReceipt, Receipt
+
+    assert Receipt.from_raw(RawReceipt(date="Not specified", total="10")).issues == []
+    assert any("date" in i for i in Receipt.from_raw(RawReceipt(date="2005-", total="10")).issues)

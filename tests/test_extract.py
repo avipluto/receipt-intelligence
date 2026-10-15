@@ -42,3 +42,48 @@ def test_model_content_not_json_becomes_error(monkeypatch):
     monkeypatch.setattr(ex.requests, "post", lambda *a, **k: FakeResponse('{"message": {"content": "{\\"total\\": "}}'))
     result = ex.extract(["TOTAL 10.00"])
     assert result.receipt is None and "schema validation failed" in result.error
+
+
+class ErrorResponse(FakeResponse):
+    def __init__(self, status: int):
+        super().__init__("boom")
+        self.status_code = status
+
+    def raise_for_status(self):
+        raise requests.HTTPError(f"{self.status_code} Server Error", response=self)
+
+
+GOOD = '{"message": {"content": "{\\"total\\": \\"10.00\\"}"}}'
+
+
+def fake_post(*replies):
+    calls = []
+
+    def post(*a, **k):
+        calls.append(1)
+        return replies[len(calls) - 1]
+
+    return post, calls
+
+
+def test_transient_500_is_retried_once(monkeypatch):
+    post, calls = fake_post(ErrorResponse(500), FakeResponse(GOOD))
+    monkeypatch.setattr(ex.requests, "post", post)
+    result = ex.extract(["TOTAL 10.00"])
+    assert result.error is None and str(result.receipt.total) == "10.00"
+    assert len(calls) == 2
+
+
+def test_client_error_is_not_retried(monkeypatch):
+    post, calls = fake_post(ErrorResponse(400), FakeResponse(GOOD))
+    monkeypatch.setattr(ex.requests, "post", post)
+    result = ex.extract(["TOTAL 10.00"])
+    assert result.receipt is None and "400" in result.error
+    assert len(calls) == 1
+
+
+def test_gives_up_after_second_failure(monkeypatch):
+    post, calls = fake_post(ErrorResponse(500), ErrorResponse(500))
+    monkeypatch.setattr(ex.requests, "post", post)
+    assert ex.extract(["TOTAL 10.00"]).receipt is None
+    assert len(calls) == 2

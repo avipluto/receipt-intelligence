@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS receipts (
     currency        TEXT,
     subtotal_cents  INTEGER,
     tax_cents       INTEGER,
+    service_cents   INTEGER,
+    discount_cents  INTEGER,
     total_cents     INTEGER,
     payment_method  TEXT,
     needs_review    INTEGER NOT NULL DEFAULT 0,
@@ -79,7 +81,18 @@ def connect(path: str | Path = "data/db/receipts.db") -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")  # off by default in SQLite
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """CREATE TABLE IF NOT EXISTS never alters an existing table, so columns added
+    after a database was created are added here. Tiny hand-rolled migrations are
+    enough for one local file; a team project would reach for Alembic."""
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(receipts)")}
+    for col in ("service_cents", "discount_cents"):
+        if col not in have:
+            conn.execute(f"ALTER TABLE receipts ADD COLUMN {col} INTEGER")
 
 
 def save_receipt(
@@ -103,14 +116,15 @@ def save_receipt(
     with conn:  # transaction: commits on success, rolls back on exception
         cur = conn.execute(
             """INSERT INTO receipts (file_path, file_sha256, merchant, purchase_date, currency,
-                   subtotal_cents, tax_cents, total_cents, payment_method,
+                   subtotal_cents, tax_cents, service_cents, discount_cents, total_cents, payment_method,
                    needs_review, issues, ocr_text, raw_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 file_path, sha256, receipt.merchant,
                 receipt.date.isoformat() if receipt.date else None,
                 receipt.currency,
-                to_cents(receipt.subtotal), to_cents(receipt.tax), to_cents(receipt.total),
+                to_cents(receipt.subtotal), to_cents(receipt.tax),
+                to_cents(receipt.service_charge), to_cents(receipt.discount), to_cents(receipt.total),
                 receipt.payment_method,
                 int(receipt.needs_review), json.dumps(receipt.issues),
                 "\n".join(ocr_lines), raw_json,
@@ -139,6 +153,8 @@ def load_receipt(conn: sqlite3.Connection, receipt_id: int) -> Receipt | None:
         currency=row["currency"],
         subtotal=from_cents(row["subtotal_cents"]),
         tax=from_cents(row["tax_cents"]),
+        service_charge=from_cents(row["service_cents"]),
+        discount=from_cents(row["discount_cents"]),
         total=from_cents(row["total_cents"]),
         payment_method=row["payment_method"],
         issues=json.loads(row["issues"]),
