@@ -1,0 +1,643 @@
+{
+ "summary": {
+  "engine": "tesseract",
+  "images": 100,
+  "word_recall_pct": 35.8,
+  "line_similarity": 54.9,
+  "total_found_pct": 31.6,
+  "sec_per_image_median": 0.79,
+  "load_s": 1.1,
+  "peak_ram_mb": 174
+ },
+ "per_image": [
+  {
+   "id": "000",
+   "word_recall": 0.5833333333333334,
+   "line_similarity": 78.55471456975216,
+   "total_found": true
+  },
+  {
+   "id": "001",
+   "word_recall": 0.16666666666666666,
+   "line_similarity": 52.353429027113236,
+   "total_found": true
+  },
+  {
+   "id": "002",
+   "word_recall": 0.48,
+   "line_similarity": 82.64891871003925,
+   "total_found": true
+  },
+  {
+   "id": "003",
+   "word_recall": 0.5,
+   "line_similarity": 76.4069264069264,
+   "total_found": true
+  },
+  {
+   "id": "004",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "005",
+   "word_recall": 0.9375,
+   "line_similarity": 100.0,
+   "total_found": true
+  },
+  {
+   "id": "006",
+   "word_recall": 0.42105263157894735,
+   "line_similarity": 82.95338441890166,
+   "total_found": false
+  },
+  {
+   "id": "007",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "008",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "009",
+   "word_recall": 0.45454545454545453,
+   "line_similarity": 84.78260869565217,
+   "total_found": null
+  },
+  {
+   "id": "010",
+   "word_recall": 0.38461538461538464,
+   "line_similarity": 90.75862068965517,
+   "total_found": true
+  },
+  {
+   "id": "011",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "012",
+   "word_recall": 0.043478260869565216,
+   "line_similarity": 47.89813361241933,
+   "total_found": false
+  },
+  {
+   "id": "013",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "014",
+   "word_recall": 0.425,
+   "line_similarity": 79.53104639038143,
+   "total_found": false
+  },
+  {
+   "id": "015",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "016",
+   "word_recall": 0.5833333333333334,
+   "line_similarity": 78.34529216507029,
+   "total_found": false
+  },
+  {
+   "id": "017",
+   "word_recall": 0.5945945945945946,
+   "line_similarity": 88.06830020551826,
+   "total_found": false
+  },
+  {
+   "id": "018",
+   "word_recall": 0.09090909090909091,
+   "line_similarity": 36.901709401709404,
+   "total_found": false
+  },
+  {
+   "id": "019",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "020",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "021",
+   "word_recall": 0.4166666666666667,
+   "line_similarity": 84.97546040748806,
+   "total_found": false
+  },
+  {
+   "id": "022",
+   "word_recall": 0.7777777777777778,
+   "line_similarity": 92.64367816091954,
+   "total_found": false
+  },
+  {
+   "id": "023",
+   "word_recall": 0.5714285714285714,
+   "line_similarity": 74.37738731856379,
+   "total_found": false
+  },
+  {
+   "id": "024",
+   "word_recall": 0.08,
+   "line_similarity": 45.86080061372459,
+   "total_found": true
+  },
+  {
+   "id": "025",
+   "word_recall": 0.0,
+   "line_similarity": 16.721550054883387,
+   "total_found": false
+  },
+  {
+   "id": "026",
+   "word_recall": 0.0,
+   "line_similarity": 22.20909416398138,
+   "total_found": false
+  },
+  {
+   "id": "027",
+   "word_recall": 0.5294117647058824,
+   "line_similarity": 70.57307795179649,
+   "total_found": true
+  },
+  {
+   "id": "028",
+   "word_recall": 0.6363636363636364,
+   "line_similarity": 80.83561175666439,
+   "total_found": false
+  },
+  {
+   "id": "029",
+   "word_recall": 0.2765957446808511,
+   "line_similarity": 55.379192473659884,
+   "total_found": false
+  },
+  {
+   "id": "030",
+   "word_recall": 0.125,
+   "line_similarity": 49.38003220611916,
+   "total_found": false
+  },
+  {
+   "id": "031",
+   "word_recall": 0.4782608695652174,
+   "line_similarity": 66.86302203543583,
+   "total_found": false
+  },
+  {
+   "id": "032",
+   "word_recall": 0.0,
+   "line_similarity": 39.931742234373814,
+   "total_found": false
+  },
+  {
+   "id": "033",
+   "word_recall": 0.35714285714285715,
+   "line_similarity": 60.982504337767494,
+   "total_found": false
+  },
+  {
+   "id": "034",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "035",
+   "word_recall": 0.7391304347826086,
+   "line_similarity": 89.13057385963789,
+   "total_found": false
+  },
+  {
+   "id": "036",
+   "word_recall": 0.3888888888888889,
+   "line_similarity": 71.27814088598402,
+   "total_found": false
+  },
+  {
+   "id": "037",
+   "word_recall": 0.09090909090909091,
+   "line_similarity": 29.731559290382823,
+   "total_found": null
+  },
+  {
+   "id": "038",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "039",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": null
+  },
+  {
+   "id": "040",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "041",
+   "word_recall": 0.5121951219512195,
+   "line_similarity": 77.89249540627354,
+   "total_found": false
+  },
+  {
+   "id": "042",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "043",
+   "word_recall": 0.06666666666666667,
+   "line_similarity": 31.786655522424024,
+   "total_found": false
+  },
+  {
+   "id": "044",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "045",
+   "word_recall": 0.4444444444444444,
+   "line_similarity": 66.69034669034669,
+   "total_found": false
+  },
+  {
+   "id": "046",
+   "word_recall": 0.6,
+   "line_similarity": 86.1276455026455,
+   "total_found": true
+  },
+  {
+   "id": "047",
+   "word_recall": 0.8888888888888888,
+   "line_similarity": 97.61049227452389,
+   "total_found": true
+  },
+  {
+   "id": "048",
+   "word_recall": 0.8421052631578947,
+   "line_similarity": 93.75,
+   "total_found": true
+  },
+  {
+   "id": "049",
+   "word_recall": 0.22727272727272727,
+   "line_similarity": 45.94516594516595,
+   "total_found": false
+  },
+  {
+   "id": "050",
+   "word_recall": 0.07142857142857142,
+   "line_similarity": 28.422331668965697,
+   "total_found": false
+  },
+  {
+   "id": "051",
+   "word_recall": 0.48717948717948717,
+   "line_similarity": 83.65258042889621,
+   "total_found": true
+  },
+  {
+   "id": "052",
+   "word_recall": 0.55,
+   "line_similarity": 92.96645894428153,
+   "total_found": true
+  },
+  {
+   "id": "053",
+   "word_recall": 0.7407407407407407,
+   "line_similarity": 91.55210923827946,
+   "total_found": true
+  },
+  {
+   "id": "054",
+   "word_recall": 0.6666666666666666,
+   "line_similarity": 89.27941176470588,
+   "total_found": true
+  },
+  {
+   "id": "055",
+   "word_recall": 0.8571428571428571,
+   "line_similarity": 90.65934065934066,
+   "total_found": false
+  },
+  {
+   "id": "056",
+   "word_recall": 0.15384615384615385,
+   "line_similarity": 69.14510326275033,
+   "total_found": false
+  },
+  {
+   "id": "057",
+   "word_recall": 0.125,
+   "line_similarity": 58.20433436532508,
+   "total_found": null
+  },
+  {
+   "id": "058",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "059",
+   "word_recall": 0.1016949152542373,
+   "line_similarity": 28.542604697220185,
+   "total_found": false
+  },
+  {
+   "id": "060",
+   "word_recall": 0.6428571428571429,
+   "line_similarity": 85.0452268038475,
+   "total_found": true
+  },
+  {
+   "id": "061",
+   "word_recall": 0.1509433962264151,
+   "line_similarity": 55.1922379071971,
+   "total_found": false
+  },
+  {
+   "id": "062",
+   "word_recall": 0.3125,
+   "line_similarity": 48.892686261107315,
+   "total_found": false
+  },
+  {
+   "id": "063",
+   "word_recall": 0.9615384615384616,
+   "line_similarity": 99.41520467836257,
+   "total_found": true
+  },
+  {
+   "id": "064",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "065",
+   "word_recall": 0.0,
+   "line_similarity": 44.57983755375059,
+   "total_found": false
+  },
+  {
+   "id": "066",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "067",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "068",
+   "word_recall": 0.2222222222222222,
+   "line_similarity": 60.88643790849673,
+   "total_found": false
+  },
+  {
+   "id": "069",
+   "word_recall": 0.5909090909090909,
+   "line_similarity": 77.22112428634168,
+   "total_found": false
+  },
+  {
+   "id": "070",
+   "word_recall": 0.6818181818181818,
+   "line_similarity": 92.19904670865631,
+   "total_found": true
+  },
+  {
+   "id": "071",
+   "word_recall": 0.6666666666666666,
+   "line_similarity": 77.4212715389186,
+   "total_found": true
+  },
+  {
+   "id": "072",
+   "word_recall": 0.14285714285714285,
+   "line_similarity": 47.964720009054986,
+   "total_found": false
+  },
+  {
+   "id": "073",
+   "word_recall": 0.6190476190476191,
+   "line_similarity": 76.67907460557188,
+   "total_found": true
+  },
+  {
+   "id": "074",
+   "word_recall": 0.8,
+   "line_similarity": 83.325605882506,
+   "total_found": false
+  },
+  {
+   "id": "075",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "076",
+   "word_recall": 0.5555555555555556,
+   "line_similarity": 78.63756613756614,
+   "total_found": null
+  },
+  {
+   "id": "077",
+   "word_recall": 0.75,
+   "line_similarity": 94.9808429118774,
+   "total_found": true
+  },
+  {
+   "id": "078",
+   "word_recall": 0.6875,
+   "line_similarity": 80.48997493734336,
+   "total_found": false
+  },
+  {
+   "id": "079",
+   "word_recall": 0.5,
+   "line_similarity": 69.89472112884091,
+   "total_found": true
+  },
+  {
+   "id": "080",
+   "word_recall": 0.3333333333333333,
+   "line_similarity": 40.59001425503889,
+   "total_found": false
+  },
+  {
+   "id": "081",
+   "word_recall": 0.36363636363636365,
+   "line_similarity": 76.93910256410257,
+   "total_found": false
+  },
+  {
+   "id": "082",
+   "word_recall": 0.7333333333333333,
+   "line_similarity": 76.18273515450934,
+   "total_found": true
+  },
+  {
+   "id": "083",
+   "word_recall": 0.0,
+   "line_similarity": 19.415584415584416,
+   "total_found": false
+  },
+  {
+   "id": "084",
+   "word_recall": 0.6666666666666666,
+   "line_similarity": 81.4069264069264,
+   "total_found": true
+  },
+  {
+   "id": "085",
+   "word_recall": 0.640625,
+   "line_similarity": 83.75532120358889,
+   "total_found": false
+  },
+  {
+   "id": "086",
+   "word_recall": 0.45,
+   "line_similarity": 68.14609856481778,
+   "total_found": false
+  },
+  {
+   "id": "087",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "088",
+   "word_recall": 0.7727272727272727,
+   "line_similarity": 95.77380952380952,
+   "total_found": true
+  },
+  {
+   "id": "089",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "090",
+   "word_recall": 0.9444444444444444,
+   "line_similarity": 98.41269841269842,
+   "total_found": true
+  },
+  {
+   "id": "091",
+   "word_recall": 0.3076923076923077,
+   "line_similarity": 54.538939321548014,
+   "total_found": false
+  },
+  {
+   "id": "092",
+   "word_recall": 0.6923076923076923,
+   "line_similarity": 93.92193827677698,
+   "total_found": true
+  },
+  {
+   "id": "093",
+   "word_recall": 0.35,
+   "line_similarity": 57.91791541791542,
+   "total_found": false
+  },
+  {
+   "id": "094",
+   "word_recall": 0.7333333333333333,
+   "line_similarity": 95.30302592850266,
+   "total_found": true
+  },
+  {
+   "id": "095",
+   "word_recall": 0.0,
+   "line_similarity": 0,
+   "total_found": false
+  },
+  {
+   "id": "096",
+   "word_recall": 0.2777777777777778,
+   "line_similarity": 63.342753797926214,
+   "total_found": false
+  },
+  {
+   "id": "097",
+   "word_recall": 0.5263157894736842,
+   "line_similarity": 86.18131868131869,
+   "total_found": true
+  },
+  {
+   "id": "098",
+   "word_recall": 0.4074074074074074,
+   "line_similarity": 69.43014269040435,
+   "total_found": false
+  },
+  {
+   "id": "099",
+   "word_recall": 0.864406779661017,
+   "line_similarity": 98.02095246146551,
+   "total_found": true
+  }
+ ],
+ "samples": {
+  "000": [
+   "901016 TICKET P",
+   "2 60,000 £0,000",
+   "TOTAL DISC $",
+   "TAX",
+   "Subtotal",
+   "TOTAL caty 2.00 60,000",
+   "= EDC CINB NIAGA No: xx7730 60.000",
+   "eee tury,"
+  ],
+  "001": [
+   "se",
+   "rOTAL",
+   "pezcm PRI",
+   "91000",
+   "CASH 391000"
+  ],
+  "002": [
+   "Ibe MT CL) 24,000",
+   "WONUT JELLY CL) 4,000",
+   "SUB TUT 28,000",
+   "4",
+   "TOTAL SAI SS 28.000",
+   "TOTAL TMS \\",
+   "CASH 100,000",
+   "CHANGE"
+  ]
+ }
+}

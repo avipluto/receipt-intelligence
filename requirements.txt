@@ -1,0 +1,23 @@
+# Python 3.11. Direct dependencies only, pinned to the versions benchmarked in docs/.
+# Not in pip: Ollama (ollama.com) with `ollama pull qwen2.5:3b`; Tesseract is optional (benchmark only).
+
+# --- app
+pydantic==2.14.1
+requests==2.34.2
+numpy==2.3.5
+opencv-python-headless==5.0.0.93
+paddlepaddle==3.3.1        # CPU build; Windows CPU needs enable_mkldnn=False (see ocr.py)
+paddleocr==3.7.0
+pymupdf==1.28.2            # AGPL-3.0: fine for open source; use pypdfium2 if this ever goes closed-source
+
+# --- benchmarks / evaluation
+psutil==7.2.2
+nvidia-ml-py==13.615.71
+pyarrow==26.0.0
+pillow==12.3.0
+RapidFuzz==3.14.6
+rapidocr-onnxruntime==1.4.4
+pytesseract==0.3.13
+
+# --- dev
+pytest==9.1.1

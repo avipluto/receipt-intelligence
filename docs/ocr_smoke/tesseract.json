@@ -1,0 +1,61 @@
+{
+ "summary": {
+  "engine": "tesseract",
+  "images": 3,
+  "word_recall_pct": 41.0,
+  "line_similarity": 71.2,
+  "total_found_pct": 100.0,
+  "sec_per_image_median": 0.68,
+  "load_s": 5.3,
+  "peak_ram_mb": 100
+ },
+ "per_image": [
+  {
+   "id": "000",
+   "word_recall": 0.5833333333333334,
+   "line_similarity": 78.55471456975216,
+   "total_found": true
+  },
+  {
+   "id": "001",
+   "word_recall": 0.16666666666666666,
+   "line_similarity": 52.353429027113236,
+   "total_found": true
+  },
+  {
+   "id": "002",
+   "word_recall": 0.48,
+   "line_similarity": 82.64891871003925,
+   "total_found": true
+  }
+ ],
+ "samples": {
+  "000": [
+   "901016 TICKET P",
+   "2 60,000 £0,000",
+   "TOTAL DISC $",
+   "TAX",
+   "Subtotal",
+   "TOTAL caty 2.00 60,000",
+   "= EDC CINB NIAGA No: xx7730 60.000",
+   "eee tury,"
+  ],
+  "001": [
+   "se",
+   "rOTAL",
+   "pezcm PRI",
+   "91000",
+   "CASH 391000"
+  ],
+  "002": [
+   "Ibe MT CL) 24,000",
+   "WONUT JELLY CL) 4,000",
+   "SUB TUT 28,000",
+   "4",
+   "TOTAL SAI SS 28.000",
+   "TOTAL TMS \\",
+   "CASH 100,000",
+   "CHANGE"
+  ]
+ }
+}

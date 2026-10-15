@@ -1,0 +1,61 @@
+{
+ "summary": {
+  "engine": "rapidocr",
+  "images": 3,
+  "word_recall_pct": 64.7,
+  "line_similarity": 95.5,
+  "total_found_pct": 100.0,
+  "sec_per_image_median": 2.71,
+  "load_s": 5.6,
+  "peak_ram_mb": 262
+ },
+ "per_image": [
+  {
+   "id": "000",
+   "word_recall": 0.5416666666666666,
+   "line_similarity": 98.58823529411765,
+   "total_found": true
+  },
+  {
+   "id": "001",
+   "word_recall": 1.0,
+   "line_similarity": 100.0,
+   "total_found": true
+  },
+  {
+   "id": "002",
+   "word_recall": 0.4,
+   "line_similarity": 87.8558671500704,
+   "total_found": true
+  }
+ ],
+ "samples": {
+  "000": [
+   "901016 -TICKETCP",
+   "60.000 60.000",
+   "TOTALDISCS -60.000",
+   "TAX 5.455",
+   "Subtotal 60.000",
+   "TOTAL (Qty2.0060.000",
+   "EDC CIMB NIAGA No:XX7730 60.000",
+   "TNEO"
+  ],
+  "001": [
+   "J.STB PROMO 17500",
+   "Y.B.BAT 46000",
+   "Y.BASO PROM 27500",
+   "TOTAL 91000",
+   "CASH 91000"
+  ],
+  "002": [
+   "SMINE MT(L） 24.000",
+   "UCONUT JELLY(L 4,000",
+   "SUB TUIAI 28,000",
+   "TOTAL SALES 28,000",
+   "TOTAL IIES 1",
+   "CASH 100.000",
+   "CHANGE 72,000",
+   "Qupe No:102"
+  ]
+ }
+}
