@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "receipt_ai.api:app", "--app-dir", "src", "--port", "8765"],
+      "env": { "RECEIPTS_DB": "data/db/demo.db" },
+      "port": 8765
+    },
+    {
+      "name": "ui",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "streamlit", "run", "src/receipt_ai/ui.py", "--server.port", "8501", "--server.headless", "true"],
+      "port": 8501
+    }
+  ]
+}
