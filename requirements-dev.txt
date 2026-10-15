@@ -1,0 +1,14 @@
+# Evaluation, benchmarks and tests. The app itself needs only requirements.txt.
+-r requirements.txt
+
+# --- benchmarks / evaluation
+psutil==7.2.2
+nvidia-ml-py==13.615.71
+pyarrow==26.0.0
+pillow==12.3.0
+rapidocr-onnxruntime==1.4.4
+pytesseract==0.3.13
+
+# --- dev
+pytest==9.1.1
+httpx==0.28.1              # FastAPI TestClient
