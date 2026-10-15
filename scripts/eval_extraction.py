@@ -67,7 +67,13 @@ def main() -> None:
             ocr_file = Path(args.data, "ocr", lf.name)
             if not ocr_file.exists():
                 continue
-            lines = json.loads(ocr_file.read_text(encoding="utf-8"))["lines"]
+            try:
+                lines = json.loads(ocr_file.read_text(encoding="utf-8"))["lines"]
+            except (ValueError, KeyError) as e:
+                # A corrupt cache file is a data problem, not a reason to lose the whole run.
+                rows.append({"id": lf.stem, "seconds": 0.0, "error": f"bad OCR cache file: {e!r}"})
+                print(f"[{i}/{len(label_files)}] {lf.stem} SKIPPED: bad OCR cache ({e!r})", flush=True)
+                continue
 
         result = extract(lines)
         f, r = label["fields"], result.receipt
