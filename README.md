@@ -32,19 +32,15 @@ Write-ups: [model choice](docs/00-model-selection.md) · [OCR choice](docs/01-oc
 
 **Prerequisite:** [Ollama](https://ollama.com) running on the host with `ollama pull qwen2.5:3b`.
 
-With Docker:
-```bash
-docker compose up --build
-```
-UI at http://localhost:8501, API docs at http://localhost:8765/docs. OCR models download to `./models` on first use.
-*(Status: the compose setup is written but its first full build has not completed yet; the Docker engine crashed mid-build on the dev machine. The non-Docker route below is tested.)*
-
-Without Docker (Python 3.11):
+Setup (Python 3.11):
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt
 .venv/Scripts/python -m uvicorn receipt_ai.api:app --app-dir src --port 8765
 .venv/Scripts/python -m streamlit run src/receipt_ai/ui.py
 ```
+UI at http://localhost:8501, API docs at http://localhost:8765/docs. OCR models download to `./models` on first use.
+
+Why no Docker: the app is built to run fully on one Windows laptop (GPU via the Ollama tray app, OCR on the CPU). A container adds ~2 GB of image and a Linux VM competing for 16 GB of RAM, which on the dev machine pushed Windows' page file onto a nearly full C: drive. Running natively is simpler and lighter here.
 
 Tests: `python -m pytest -q tests`. Evaluation: `python scripts/eval_extraction.py --source ocr --tag vN` (needs the CORD data, see `scripts/prepare_cord.py`).
 

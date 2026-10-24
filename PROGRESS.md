@@ -1,10 +1,10 @@
 # Project progress: Receipt Intelligence
 
-Last updated: 2026-10-15 · branch `master` · 103 tests passing
+Last updated: 2026-10-24 · branch `master` · 103 tests passing
 
-## Overall: about 95% done, about 5% left
+## Overall: done (100% of the planned scope)
 
-This is an estimate, weighted by effort, for the planned scope: extraction pipeline, evaluation, question answering, API, UI, Docker and docs.
+Planned scope: extraction pipeline, evaluation, question answering, API, UI and docs. Docker was dropped on 2026-10-24 (see below).
 
 | Area | Status | Done |
 |---|---|---|
@@ -17,15 +17,14 @@ This is an estimate, weighted by effort, for the planned scope: extraction pipel
 | FastAPI backend | ✅ done, tested, run live | 100% |
 | Streamlit UI (Plotly charts, citations) | ✅ done, checked in the browser | 100% |
 | OCR line grouping fix (tilted photos) | ✅ done, measured (v9/v10 in `docs/02-extraction.md`) | 100% |
-| Docker | 🟡 Dockerfile + compose written; build **not verified** (Docker Desktop crashed mid-build) | 50% |
-| README / docs | ✅ written; only the Docker note waits on verification | 95% |
+| Docker | ⛔ dropped: the app runs natively; a Linux VM on 16 GB RAM pushed the page file onto a nearly full C: | n/a |
+| README / docs | ✅ done | 100% |
 
-## What's left (in order)
+## Nice to do next
 
-1. **Verify Docker:** restart Docker Desktop, run `docker compose up --build`, open http://localhost:8501, upload one receipt. Then remove the "not verified" note from the README.
-2. **Demo with real receipts:** CORD photos have no dates, so date questions ("last month") can't be shown yet. Ingest a few of your own receipts.
+- **Demo with real receipts:** CORD photos have no dates, so date questions ("last month") can't be shown yet. Ingest a few of your own receipts.
 
-## Optional next steps (outside the planned scope)
+## Optional improvements
 
 - Lower false review flags (about 33% on real OCR). Most come from genuine item errors, so a per-field flag would be fairer.
 - OCR misses the amounts entirely on some photos (CORD 013, 020). That needs a better detector or image preprocessing, not grouping.
@@ -42,7 +41,7 @@ This is an estimate, weighted by effort, for the planned scope: extraction pipel
 
 Remaining total errors (v10): 6 caused by OCR, 2 by the LLM.
 
-## How to run (no Docker)
+## How to run
 
 ```bash
 .venv/Scripts/python -m uvicorn receipt_ai.api:app --app-dir src --port 8765

@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 from .schema import RawReceipt, Receipt
 
-# In Docker, set OLLAMA_URL=http://host.docker.internal:11434 to reach Ollama on the host.
+# Override with the OLLAMA_URL env var if Ollama runs on another host or port.
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 MODEL = "qwen2.5:3b"
 MAX_OUTPUT_TOKENS = 1500  # the longest correct CORD extraction is far below this
