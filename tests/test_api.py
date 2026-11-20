@@ -80,6 +80,13 @@ def test_stats_endpoints(client):
     assert client.get("/stats/merchants").json()["rows"][0]["merchant"] == "Cafe"
 
 
+@pytest.mark.parametrize("url", ["/receipts?limit=-1", "/receipts?limit=0", "/receipts?limit=10001",
+                                 "/stats/merchants?top_n=-1", "/stats/merchants?top_n=0"])
+def test_row_counts_are_bounded(client, url):
+    # A negative LIMIT means "everything" to SQLite, so it must not reach the query.
+    assert client.get(url).status_code == 422
+
+
 def test_token_required_when_configured(client, monkeypatch):
     monkeypatch.setenv("RECEIPTS_API_TOKEN", "s3cret-test-token")
     assert client.get("/health").status_code == 401

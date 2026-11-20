@@ -29,7 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import requests
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -41,6 +41,8 @@ DB_PATH = os.environ.get("RECEIPTS_DB", "data/db/receipts.db")
 UPLOAD_DIR = Path(os.environ.get("RECEIPTS_UPLOADS", "data/raw"))
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 ALLOWED_TYPES = pipeline.IMAGE_TYPES | {".pdf"}
+# SQLite reads a negative LIMIT as "no limit", so row counts from the query string are bounded.
+MAX_LIST_ROWS = 10_000
 
 
 def require_token(x_api_key: str | None = Header(default=None)) -> None:
@@ -143,7 +145,8 @@ def _receipt_json(r) -> dict:
 
 @app.get("/receipts")
 def list_receipts(start: date | None = None, end: date | None = None, merchant: str | None = None,
-                  limit: int = 100, conn: sqlite3.Connection = Depends(get_conn)) -> list[dict]:
+                  limit: int = Query(100, ge=1, le=MAX_LIST_ROWS),
+                  conn: sqlite3.Connection = Depends(get_conn)) -> list[dict]:
     res = queries.list_receipts(conn, start and start.isoformat(), end and end.isoformat(), merchant, limit)
     return _jsonable(res.rows)
 
@@ -210,7 +213,7 @@ def stats_monthly(start: date | None = None, end: date | None = None, conn: sqli
 
 
 @app.get("/stats/merchants")
-def stats_merchants(start: date | None = None, end: date | None = None, top_n: int = 10,
+def stats_merchants(start: date | None = None, end: date | None = None, top_n: int = Query(10, ge=1, le=100),
                     conn: sqlite3.Connection = Depends(get_conn)) -> dict:
     res = queries.spend_by_merchant(conn, start and start.isoformat(), end and end.isoformat(), top_n)
     return {"rows": _jsonable(res.rows)}
