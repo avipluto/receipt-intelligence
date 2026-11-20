@@ -40,6 +40,31 @@ python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt
 ```
 UI at http://localhost:8501, API docs at http://localhost:8765/docs. OCR models download to `./models` on first use.
 
+### Settings
+
+All optional, read from environment variables:
+
+| Variable | Default | What |
+|---|---|---|
+| `RECEIPTS_DB` | `data/db/receipts.db` | SQLite file |
+| `RECEIPTS_UPLOADS` | `data/raw` | where uploaded photos and PDFs are kept |
+| `RECEIPTS_API_TOKEN` | not set | access key; when set, every request must send it as `X-API-Key` |
+| `OLLAMA_URL` | `http://localhost:11434` | the local Ollama server |
+| `API_URL` | `http://localhost:8765` | where the Streamlit UI finds the API |
+
+### Phone app (Android)
+
+`android/` holds a Kotlin + Jetpack Compose app (Android 8.0+) that talks to the same API over your home Wi-Fi: photograph a receipt, ask questions, browse receipts.
+
+1. Start the API so the phone can reach it, with an access key. Without `--host 0.0.0.0` it only listens on the laptop itself; with it, anyone on the Wi-Fi can reach it, which is why the key matters:
+   ```bash
+   RECEIPTS_API_TOKEN=choose-a-long-random-key .venv/Scripts/python -m uvicorn receipt_ai.api:app --app-dir src --host 0.0.0.0 --port 8765
+   ```
+2. Build and install: `android\build.cmd installDebug` with the phone connected by USB (needs JDK 21 and the Android SDK; the paths are set at the top of `build.cmd`).
+3. In the app's Settings, enter the laptop's address (for example `192.168.1.7:8765`) and the same key.
+
+The traffic is plain HTTP inside your own network. Don't expose the port to the internet.
+
 Why no Docker: the app is built to run fully on one Windows laptop (GPU via the Ollama tray app, OCR on the CPU). A container adds ~2 GB of image and a Linux VM competing for 16 GB of RAM, which on the dev machine pushed Windows' page file onto a nearly full C: drive. Running natively is simpler and lighter here.
 
 Tests: `python -m pytest -q tests`. Evaluation: `python scripts/eval_extraction.py --source ocr --tag vN` (needs the CORD data, see `scripts/prepare_cord.py`).
@@ -59,3 +84,4 @@ RTX 2050 (4 GB VRAM), 16 GB RAM, Windows 11. The 3B model uses ~2.3 GB VRAM at a
 | `src/receipt_ai/ask.py` | question → validated route → query → grounded answer |
 | `src/receipt_ai/api.py`, `ui.py` | FastAPI backend, Streamlit front end |
 | `scripts/` | benchmarks, evaluation (`--rescore` re-tests Python-only changes in seconds), demo |
+| `android/` | phone app: Kotlin + Compose client for the API |
