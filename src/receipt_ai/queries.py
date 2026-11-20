@@ -44,10 +44,13 @@ def _like(term: str) -> str:
 _ESCAPE = "ESCAPE '\\'"  # goes after every LIKE that takes a _like() pattern
 
 
-def _where(start: str | None, end: str | None, merchant: str | None, prefix: str = "") -> tuple[str, list]:
+def _where(start: str | None, end: str | None, merchant: str | None, prefix: str = "",
+           require_total: bool = True) -> tuple[str, list]:
     """Build a parameterised WHERE clause. Values always go in `params`, never into the SQL text."""
     p = prefix
-    clauses, params = [f"{p}total_cents IS NOT NULL"], []
+    # Sums skip receipts with no total. Listings must not: a receipt whose total could
+    # not be read is exactly the one the user has to open and check.
+    clauses, params = ([f"{p}total_cents IS NOT NULL"] if require_total else ["1=1"]), []
     if start:
         clauses.append(f"{p}purchase_date >= ?")
         params.append(start)
@@ -140,8 +143,8 @@ def find_items(conn, query: str, start: str | None = None, end: str | None = Non
 
 
 def list_receipts(conn, start: str | None = None, end: str | None = None, merchant: str | None = None, limit: int = 50) -> QueryResult:
-    """Individual receipts, newest first."""
-    where, params = _where(start, end, merchant)
+    """Individual receipts, newest first. Includes receipts with no readable total."""
+    where, params = _where(start, end, merchant, require_total=False)
     rows = conn.execute(
         f"""SELECT id, merchant, purchase_date, total_cents, needs_review FROM receipts
             WHERE {where} ORDER BY purchase_date DESC, id DESC LIMIT ?""",

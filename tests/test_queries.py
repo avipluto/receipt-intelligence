@@ -90,6 +90,17 @@ def test_sql_injection_in_arguments_is_just_text(conn):
     assert conn.execute("SELECT COUNT(*) FROM receipts").fetchone()[0] == 5
 
 
+def test_list_receipts_includes_receipts_without_a_total(conn):
+    # "no total found" is the most serious review flag; hiding those receipts from the
+    # list meant they could never be opened and checked.
+    r = Receipt(merchant="Torn receipt", date=date(2026, 10, 5), issues=["no total found"])
+    rid, _ = db.save_receipt(conn, r, file_path="torn.jpg", sha256="torn", ocr_lines=[], raw_json="{}")
+    listed = {x["receipt_id"]: x for x in queries.list_receipts(conn).rows}
+    assert listed[rid]["total"] is None and listed[rid]["needs_review"]
+    # Sums are unchanged: a receipt with no total adds nothing and is not cited.
+    assert rid not in queries.total_spent(conn).receipt_ids
+
+
 def test_like_wildcards_in_search_terms_are_literal(conn):
     # "%" and "_" used to act as wildcards and match every merchant / item.
     assert queries.total_spent(conn, merchant="%").rows[0]["receipts"] == 0
