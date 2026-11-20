@@ -1,6 +1,7 @@
 """HTTP API over the pipeline, the database and the question answering.
 
-  uvicorn receipt_ai.api:app --app-dir src --port 8000      (docs at /docs)
+  uvicorn receipt_ai.api:app --app-dir src --port 8765                  (this laptop only)
+  RECEIPTS_API_TOKEN=... uvicorn ... --host 0.0.0.0 --port 8765          (phone app over Wi-Fi)
 
 Design notes:
   - One SQLite connection per request: sqlite3 connections must not be shared
@@ -10,12 +11,16 @@ Design notes:
   - Money goes out as strings ("552600.00"), never floats, the same rule as in the DB.
   - Every answer returns the receipt ids it is based on; /receipts/{id} and
     /receipts/{id}/file let a client show the original as a citation.
+  - Access key: when RECEIPTS_API_TOKEN is set, every request must send it in an
+    X-API-Key header. Listening on 0.0.0.0 exposes receipts to the whole Wi-Fi
+    network, so the phone app is only meant to be used with a token set.
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
+import secrets
 import sqlite3
 import threading
 from collections.abc import Iterator
@@ -24,7 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import requests
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -37,7 +42,17 @@ UPLOAD_DIR = Path(os.environ.get("RECEIPTS_UPLOADS", "data/raw"))
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 ALLOWED_TYPES = pipeline.IMAGE_TYPES | {".pdf"}
 
-app = FastAPI(title="Receipt Intelligence", version="0.1.0")
+
+def require_token(x_api_key: str | None = Header(default=None)) -> None:
+    token = os.environ.get("RECEIPTS_API_TOKEN")
+    if not token:
+        return  # no token configured: local-only use
+    # compare_digest takes the same time for any wrong key, so timing can't leak the token.
+    if x_api_key is None or not secrets.compare_digest(x_api_key, token):
+        raise HTTPException(401, "missing or wrong X-API-Key")
+
+
+app = FastAPI(title="Receipt Intelligence", version="0.2.0", dependencies=[Depends(require_token)])
 _ingest_lock = threading.Lock()
 
 

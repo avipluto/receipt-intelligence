@@ -78,3 +78,15 @@ def test_stats_endpoints(client):
     client.post("/receipts", files={"file": ("r.pdf", _pdf_bytes("Cafe receipt  Coffee 100.00  TOTAL 120.00"), "application/pdf")})
     assert client.get("/stats/monthly").json()["rows"] == [{"month": "2026-09", "receipts": 1, "total": "120.00"}]
     assert client.get("/stats/merchants").json()["rows"][0]["merchant"] == "Cafe"
+
+
+def test_token_required_when_configured(client, monkeypatch):
+    monkeypatch.setenv("RECEIPTS_API_TOKEN", "s3cret-test-token")
+    assert client.get("/health").status_code == 401
+    assert client.get("/health", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/receipts", headers={"X-API-Key": "s3cret-test-token"}).status_code == 200
+
+
+def test_no_token_configured_means_open_locally(client, monkeypatch):
+    monkeypatch.delenv("RECEIPTS_API_TOKEN", raising=False)
+    assert client.get("/receipts").status_code == 200
