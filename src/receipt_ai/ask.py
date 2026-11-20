@@ -188,10 +188,17 @@ def sanitize_route(question: str, r: Route) -> Route:
     )
 
 
+NO_ITEM_NOTE = "no item named in the question"
+
+
 def run_tool(conn: sqlite3.Connection, r: Route, today: date) -> tuple[QueryResult, str]:
     start, end, period_text = resolve_period(r, today)
-    if r.tool == "find_items":
-        result = queries.find_items(conn, r.item or "", start, end)
+    if r.tool == "find_items" and not r.item:
+        # sanitize_route dropped an item the question never named. Searching for ""
+        # matches every line item, and the answer then claimed 50 items "matched".
+        result = QueryResult(rows=[], note=NO_ITEM_NOTE)
+    elif r.tool == "find_items":
+        result = queries.find_items(conn, r.item, start, end)
     elif r.tool == "spend_by_merchant":
         result = queries.spend_by_merchant(conn, start, end)
     else:
@@ -225,6 +232,8 @@ def template_answer(r: Route, result: QueryResult, period_text: str) -> str:
         if not rows[0]["receipts"]:
             return f"No receipts found{where} for {period_text}."
         return f"You spent {rows[0]['total']}{where} in {period_text}, across {rows[0]['receipts']} receipt(s)."
+    if r.tool == "find_items" and not r.item:
+        return 'I could not tell which item you mean. Name it in the question, for example "When did I last buy butter?"'
     if not rows:
         return f"No matching receipts found for {period_text}."
     if r.tool == "spend_by_merchant":
@@ -248,7 +257,7 @@ TEMPLATE_TOOLS = {"total_spent", "list_receipts"}
 
 def answer(question: str, r: Route, result: QueryResult, period_text: str, today: date) -> tuple[str, bool]:
     """Returns (answer_text, used_llm)."""
-    if r.tool in TEMPLATE_TOOLS:
+    if r.tool in TEMPLATE_TOOLS or (r.tool == "find_items" and not r.item):
         return template_answer(r, result, period_text), False
     payload = result.to_dict()
     data = json.dumps({"period": period_text, **payload}, ensure_ascii=False)

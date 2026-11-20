@@ -106,6 +106,26 @@ def test_todays_date_in_answer_is_not_grounded(monkeypatch):
     assert not used_llm and "2026" not in text and "None" not in text and "82000" in text
 
 
+def test_find_items_without_an_item_asks_instead_of_matching_everything(monkeypatch):
+    from decimal import Decimal
+
+    from receipt_ai import ask as ask_mod
+    from receipt_ai import db
+    from receipt_ai.schema import LineItem, Receipt
+
+    conn = db.connect(":memory:")
+    r = Receipt(merchant="Shop", total=Decimal("10"), items=[LineItem(name="Bread", line_total=Decimal("10"))])
+    db.save_receipt(conn, r, file_path="a.jpg", sha256="a", ocr_lines=[], raw_json="{}")
+    monkeypatch.setattr(ask_mod, "_chat", lambda *a, **k: pytest.fail("nothing to phrase without an item"))
+
+    route = Route(tool="find_items", period="all")  # the router's item was not in the question
+    result, period_text = ask_mod.run_tool(conn, route, TODAY)
+    assert result.rows == [] and result.receipt_ids == []
+    text, used_llm = ask_mod.answer("What did I buy?", route, result, period_text, TODAY)
+    assert not used_llm and "which item" in text
+    conn.close()
+
+
 def test_review_note_is_appended_by_python():
     from receipt_ai.ask import REVIEW_NOTE, with_review_note
     from receipt_ai.queries import QueryResult
