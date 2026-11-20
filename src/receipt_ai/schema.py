@@ -69,6 +69,7 @@ def parse_amount(text: str | None) -> Decimal | None:
       both present        -> the one appearing last is the decimal point   1,250.50 | 1.250,50
       one kind, repeated  -> thousands separator                           1,565,938
       one kind, once, followed by exactly 3 digits -> thousands            60.000 (IDR) | 10,000
+        ...unless nothing but zeros comes before it -> decimal point       0.500 (kg) | 0,250
       one kind, once, otherwise                    -> decimal point        552.30 | 4,5
     """
     if not text:
@@ -86,7 +87,10 @@ def parse_amount(text: str | None) -> Decimal | None:
     elif "," in s or "." in s:
         sep = "," if "," in s else "."
         parts = s.split(sep)
-        if len(parts) > 2 or len(parts[-1]) == 3:
+        # A thousands group needs a non-zero number in front of it: "0.500" is half a
+        # kilo, not five hundred. Without this a weighed item's quantity came out 1000x.
+        leading_zero = len(parts) == 2 and not parts[0].strip("0")
+        if len(parts) > 2 or (len(parts[-1]) == 3 and not leading_zero):
             s = s.replace(sep, "")
         else:
             s = s.replace(sep, ".")

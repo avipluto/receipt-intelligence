@@ -24,6 +24,9 @@ from receipt_ai.schema import RawItem, RawReceipt, Receipt, parse_amount, parse_
         ("-60.000", "-60000"),        # discount line
         ("60.000-", "-60000"),        # trailing-minus style
         ("$12.5", "12.5"),
+        ("0.500", "0.5"),             # weighed item: 3 digits after a leading zero is a decimal
+        ("0,250", "0.25"),
+        ("1.500", "1500"),            # ...but a non-zero lead is still thousands
     ],
 )
 def test_parse_amount(printed, expected):
