@@ -23,6 +23,14 @@ TODAY = date(2026, 10, 15)
         (dict(period="last_n_days", n_days=7), ("2026-10-09", "2026-10-15")),
         (dict(period="all"), (None, None)),
         (dict(period="month"), (None, None)),  # month missing -> fall back to all time, don't crash
+        (dict(period="range", start="2026-09-01", end="2026-09-30"), ("2026-09-01", "2026-09-30")),
+        (dict(period="range", start="2026-09-30", end="2026-09-01"), ("2026-09-01", "2026-09-30")),  # reversed
+        (dict(period="range", start="2026-9-1", end="30 Sept"), (None, None)),  # not ISO: would match nothing as text
+        (dict(period="range", start="2026-09-01"), (None, None)),
+        (dict(period="last_n_days", n_days=-5), (None, None)),
+        (dict(period="last_n_days", n_days=3000000000000000), (None, None)),  # measured live; overflowed timedelta
+        (dict(period="year", year=99999), (None, None)),  # date() would raise
+        (dict(period="month", month=9, year=0), ("2026-09-01", "2026-09-30")),  # junk year ignored, month kept
     ],
 )
 def test_resolve_period(kw, expected):

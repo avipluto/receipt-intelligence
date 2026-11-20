@@ -70,8 +70,27 @@ def _month_bounds(year: int, month: int) -> tuple[date, date]:
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
 
 
+MAX_N_DAYS = 3660  # ten years; the router has produced n_days=3e15, which overflows date maths
+
+
+def _plausible_year(year: int | None) -> bool:
+    return year is not None and 1990 <= year <= 2100
+
+
+def _iso_date(text: str | None) -> date | None:
+    try:
+        return date.fromisoformat(text) if text else None
+    except ValueError:
+        return None
+
+
 def resolve_period(route: Route, today: date) -> tuple[str | None, str | None, str]:
-    """Period label -> (start, end, human description). Pure function, unit-tested."""
+    """Period label -> (start, end, human description). Pure function, unit-tested.
+
+    Every value comes from the LLM, so each one is range-checked here. Anything that
+    can't be a real period falls through to "all time" instead of raising or, worse,
+    quietly filtering every receipt out.
+    """
     p = route.period
     if p == "this_month":
         s, _ = _month_bounds(today.year, today.month)
@@ -84,17 +103,23 @@ def resolve_period(route: Route, today: date) -> tuple[str | None, str | None, s
         return date(today.year, 1, 1).isoformat(), today.isoformat(), str(today.year)
     if p == "last_year":
         return date(today.year - 1, 1, 1).isoformat(), date(today.year - 1, 12, 31).isoformat(), str(today.year - 1)
-    if p == "year" and route.year:
+    if p == "year" and _plausible_year(route.year):
         return date(route.year, 1, 1).isoformat(), date(route.year, 12, 31).isoformat(), str(route.year)
     if p == "month" and route.month and 1 <= route.month <= 12:
         # "September" without a year = the most recent September that has started.
-        year = route.year or (today.year if route.month <= today.month else today.year - 1)
+        named = route.year if _plausible_year(route.year) else None
+        year = named or (today.year if route.month <= today.month else today.year - 1)
         s, e = _month_bounds(year, route.month)
         return s.isoformat(), e.isoformat(), s.strftime("%B %Y")
-    if p == "last_n_days" and route.n_days:
+    if p == "last_n_days" and route.n_days and 1 <= route.n_days <= MAX_N_DAYS:
         return (today - timedelta(days=route.n_days - 1)).isoformat(), today.isoformat(), f"the last {route.n_days} days"
-    if p == "range" and route.start and route.end:
-        return route.start, route.end, f"{route.start} to {route.end}"
+    if p == "range":
+        # Dates are compared as text in SQL, so "2026-9-1" or "1 Sept" would match
+        # nothing without any error. Only real ISO dates get through, oldest first.
+        s, e = _iso_date(route.start), _iso_date(route.end)
+        if s and e:
+            s, e = min(s, e), max(s, e)
+            return s.isoformat(), e.isoformat(), f"{s.isoformat()} to {e.isoformat()}"
     return None, None, "all time"
 
 
