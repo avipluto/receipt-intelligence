@@ -61,6 +61,14 @@ def test_missing_receipt_is_404(client):
     assert client.delete("/receipts/999").status_code == 404
 
 
+def test_failed_upload_leaves_no_file_behind(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(pipeline, "extract", lambda lines: Extraction(None, "", 0.01, error="model returned no JSON"))
+    pdf = _pdf_bytes("Cafe receipt  Coffee 100.00  Tax 20.00  TOTAL 120.00")
+    r = client.post("/receipts", files={"file": ("r.pdf", pdf, "application/pdf")})
+    assert r.status_code == 422 and "model returned no JSON" in r.json()["detail"]
+    assert list((tmp_path / "uploads").iterdir()) == []
+
+
 def test_delete_removes_the_stored_upload(client, tmp_path):
     pdf = _pdf_bytes("Cafe receipt  Coffee 100.00  TOTAL 120.00")
     rid = client.post("/receipts", files={"file": ("r.pdf", pdf, "application/pdf")}).json()["receipt_id"]

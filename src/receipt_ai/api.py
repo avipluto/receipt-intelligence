@@ -106,12 +106,16 @@ def upload_receipt(file: UploadFile, conn: sqlite3.Connection = Depends(get_conn
     # and the DB's UNIQUE(file_sha256) already makes it one receipt.
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     path = UPLOAD_DIR / f"{hashlib.sha256(data).hexdigest()}{suffix}"
-    if not path.exists():
+    newly_stored = not path.exists()
+    if newly_stored:
         path.write_bytes(data)
 
     with _ingest_lock:
         result = pipeline.ingest(path, conn)
     if result.error:
+        # Nothing was saved for this file, so don't keep an unreadable upload around.
+        if newly_stored:
+            _remove_upload(path)
         raise HTTPException(422, f"could not read receipt: {result.error}")
     return {
         "receipt_id": result.receipt_id,
