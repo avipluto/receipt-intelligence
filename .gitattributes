@@ -2,3 +2,7 @@
 *.png binary
 *.jpg binary
 *.pdf binary
+# Windows batch files break on LF-only line endings (labels and goto misfire).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.jar binary

@@ -24,6 +24,9 @@ from receipt_ai.schema import RawItem, RawReceipt, Receipt, parse_amount, parse_
         ("-60.000", "-60000"),        # discount line
         ("60.000-", "-60000"),        # trailing-minus style
         ("$12.5", "12.5"),
+        ("0.500", "0.5"),             # weighed item: 3 digits after a leading zero is a decimal
+        ("0,250", "0.25"),
+        ("1.500", "1500"),            # ...but a non-zero lead is still thousands
     ],
 )
 def test_parse_amount(printed, expected):
@@ -48,6 +51,12 @@ def test_amounts_add_exactly():
         ("14-09-26 18:42", date(2026, 9, 14)),  # time stripped
         ("2026-09-14", date(2026, 9, 14)),
         ("14 Sep 2026", date(2026, 9, 14)),
+        ("14 Sep 26", date(2026, 9, 14)),
+        ("14/Sep/2026", date(2026, 9, 14)),
+        ("September 14, 2026", date(2026, 9, 14)),
+        ("2026.09.14", date(2026, 9, 14)),
+        ("Date: 14/09/2026", date(2026, 9, 14)),        # label copied along with the value
+        ("Mon 14-09-26 18:42 Bill 7", date(2026, 9, 14)),
     ],
 )
 def test_parse_date(printed, expected):

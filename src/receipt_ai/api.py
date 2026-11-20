@@ -1,6 +1,7 @@
 """HTTP API over the pipeline, the database and the question answering.
 
-  uvicorn receipt_ai.api:app --app-dir src --port 8000      (docs at /docs)
+  uvicorn receipt_ai.api:app --app-dir src --port 8765                  (this laptop only)
+  RECEIPTS_API_TOKEN=... uvicorn ... --host 0.0.0.0 --port 8765          (phone app over Wi-Fi)
 
 Design notes:
   - One SQLite connection per request: sqlite3 connections must not be shared
@@ -10,12 +11,16 @@ Design notes:
   - Money goes out as strings ("552600.00"), never floats, the same rule as in the DB.
   - Every answer returns the receipt ids it is based on; /receipts/{id} and
     /receipts/{id}/file let a client show the original as a citation.
+  - Access key: when RECEIPTS_API_TOKEN is set, every request must send it in an
+    X-API-Key header. Listening on 0.0.0.0 exposes receipts to the whole Wi-Fi
+    network, so the phone app is only meant to be used with a token set.
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
+import secrets
 import sqlite3
 import threading
 from collections.abc import Iterator
@@ -24,9 +29,9 @@ from decimal import Decimal
 from pathlib import Path
 
 import requests
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from . import db, pipeline, queries
 from .ask import ask
@@ -36,8 +41,20 @@ DB_PATH = os.environ.get("RECEIPTS_DB", "data/db/receipts.db")
 UPLOAD_DIR = Path(os.environ.get("RECEIPTS_UPLOADS", "data/raw"))
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 ALLOWED_TYPES = pipeline.IMAGE_TYPES | {".pdf"}
+# SQLite reads a negative LIMIT as "no limit", so row counts from the query string are bounded.
+MAX_LIST_ROWS = 10_000
 
-app = FastAPI(title="Receipt Intelligence", version="0.1.0")
+
+def require_token(x_api_key: str | None = Header(default=None)) -> None:
+    token = os.environ.get("RECEIPTS_API_TOKEN")
+    if not token:
+        return  # no token configured: local-only use
+    # compare_digest takes the same time for any wrong key, so timing can't leak the token.
+    if x_api_key is None or not secrets.compare_digest(x_api_key, token):
+        raise HTTPException(401, "missing or wrong X-API-Key")
+
+
+app = FastAPI(title="Receipt Intelligence", version="0.2.0", dependencies=[Depends(require_token)])
 _ingest_lock = threading.Lock()
 
 
@@ -89,12 +106,16 @@ def upload_receipt(file: UploadFile, conn: sqlite3.Connection = Depends(get_conn
     # and the DB's UNIQUE(file_sha256) already makes it one receipt.
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     path = UPLOAD_DIR / f"{hashlib.sha256(data).hexdigest()}{suffix}"
-    if not path.exists():
+    newly_stored = not path.exists()
+    if newly_stored:
         path.write_bytes(data)
 
     with _ingest_lock:
         result = pipeline.ingest(path, conn)
     if result.error:
+        # Nothing was saved for this file, so don't keep an unreadable upload around.
+        if newly_stored:
+            _remove_upload(path)
         raise HTTPException(422, f"could not read receipt: {result.error}")
     return {
         "receipt_id": result.receipt_id,
@@ -128,7 +149,8 @@ def _receipt_json(r) -> dict:
 
 @app.get("/receipts")
 def list_receipts(start: date | None = None, end: date | None = None, merchant: str | None = None,
-                  limit: int = 100, conn: sqlite3.Connection = Depends(get_conn)) -> list[dict]:
+                  limit: int = Query(100, ge=1, le=MAX_LIST_ROWS),
+                  conn: sqlite3.Connection = Depends(get_conn)) -> list[dict]:
     res = queries.list_receipts(conn, start and start.isoformat(), end and end.isoformat(), merchant, limit)
     return _jsonable(res.rows)
 
@@ -156,16 +178,36 @@ def get_receipt_file(receipt_id: int, conn: sqlite3.Connection = Depends(get_con
 
 @app.delete("/receipts/{receipt_id}", status_code=204)
 def delete_receipt(receipt_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> None:
-    with conn:
-        cur = conn.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))  # items cascade
-    if cur.rowcount == 0:
+    row = conn.execute("SELECT file_path FROM receipts WHERE id = ?", (receipt_id,)).fetchone()
+    if row is None:
         raise HTTPException(404, "no such receipt")
+    with conn:
+        conn.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))  # items cascade
+    # Deleting a receipt should not leave its photo behind on disk.
+    _remove_upload(Path(row["file_path"]))
+
+
+def _remove_upload(path: Path) -> None:
+    """Delete the copy the API stored for an upload.
+
+    Only files directly inside UPLOAD_DIR are touched. A receipt ingested from the
+    command line points at the user's own original, which is not ours to remove.
+    """
+    try:
+        if path.resolve().parent == UPLOAD_DIR.resolve():
+            path.unlink(missing_ok=True)
+    except OSError:
+        pass  # the row is already gone; a leftover file is harmless
 
 
 # ---------------------------------------------------------------- questions and charts
 
 
 class Question(BaseModel):
+    # Strip first, then measure: "      " is not a three-character question, and it
+    # would otherwise cost a full LLM call to find that out.
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     question: str = Field(min_length=3, max_length=500)
 
 
@@ -195,7 +237,7 @@ def stats_monthly(start: date | None = None, end: date | None = None, conn: sqli
 
 
 @app.get("/stats/merchants")
-def stats_merchants(start: date | None = None, end: date | None = None, top_n: int = 10,
+def stats_merchants(start: date | None = None, end: date | None = None, top_n: int = Query(10, ge=1, le=100),
                     conn: sqlite3.Connection = Depends(get_conn)) -> dict:
     res = queries.spend_by_merchant(conn, start and start.isoformat(), end and end.isoformat(), top_n)
     return {"rows": _jsonable(res.rows)}

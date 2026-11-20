@@ -32,10 +32,25 @@ class QueryResult:
         return d
 
 
-def _where(start: str | None, end: str | None, merchant: str | None, prefix: str = "") -> tuple[str, list]:
+def _like(term: str) -> str:
+    """Substring pattern for LIKE, with the term's own % and _ taken literally.
+
+    Without this, asking about a merchant called "%" (or an item "_") matched every row.
+    """
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+_ESCAPE = "ESCAPE '\\'"  # goes after every LIKE that takes a _like() pattern
+
+
+def _where(start: str | None, end: str | None, merchant: str | None, prefix: str = "",
+           require_total: bool = True) -> tuple[str, list]:
     """Build a parameterised WHERE clause. Values always go in `params`, never into the SQL text."""
     p = prefix
-    clauses, params = [f"{p}total_cents IS NOT NULL"], []
+    # Sums skip receipts with no total. Listings must not: a receipt whose total could
+    # not be read is exactly the one the user has to open and check.
+    clauses, params = ([f"{p}total_cents IS NOT NULL"] if require_total else ["1=1"]), []
     if start:
         clauses.append(f"{p}purchase_date >= ?")
         params.append(start)
@@ -44,8 +59,9 @@ def _where(start: str | None, end: str | None, merchant: str | None, prefix: str
         params.append(end)
     if merchant:
         # Case-insensitive substring: "bazaar" matches "BIG BAZAAR #1142".
-        clauses.append(f"{p}merchant LIKE ? COLLATE NOCASE")
-        params.append(f"%{merchant}%")
+        # (LIKE already ignores ASCII case in SQLite.)
+        clauses.append(f"{p}merchant LIKE ? {_ESCAPE}")
+        params.append(_like(merchant))
     return " AND ".join(clauses), params
 
 
@@ -66,12 +82,17 @@ def total_spent(conn, start: str | None = None, end: str | None = None, merchant
 
 
 def spend_by_merchant(conn, start: str | None = None, end: str | None = None, top_n: int = 10) -> QueryResult:
-    """Spending grouped by merchant, largest first."""
+    """Spending grouped by merchant, largest first.
+
+    "Cafe", "CAFE" and "cafe " are one shop printed three ways (OCR and the model both
+    vary the case), so the grouping ignores case and outer spaces.
+    """
     where, params = _where(start, end, None)
+    name = "TRIM(COALESCE(merchant, 'Unknown'))"
     rows = conn.execute(
-        f"""SELECT COALESCE(merchant, 'Unknown') AS merchant, COUNT(*) AS receipts, SUM(total_cents) AS cents
+        f"""SELECT MIN({name}) AS merchant, COUNT(*) AS receipts, SUM(total_cents) AS cents
             FROM receipts WHERE {where}
-            GROUP BY COALESCE(merchant, 'Unknown') ORDER BY cents DESC LIMIT ?""",
+            GROUP BY {name} COLLATE NOCASE ORDER BY cents DESC, merchant LIMIT ?""",
         [*params, top_n],
     ).fetchall()
     ids, review = _cited(conn, where, params)
@@ -105,9 +126,9 @@ def find_items(conn, query: str, start: str | None = None, end: str | None = Non
     rows = conn.execute(
         f"""SELECT i.name, i.quantity, i.line_total_cents, r.id AS receipt_id, r.merchant, r.purchase_date, r.needs_review
             FROM items i JOIN receipts r ON r.id = i.receipt_id
-            WHERE {where} AND i.name LIKE ? COLLATE NOCASE
+            WHERE {where} AND i.name LIKE ? {_ESCAPE}
             ORDER BY r.purchase_date, r.id LIMIT ?""",
-        [*params, f"%{query}%", limit],
+        [*params, _like(query), limit],
     ).fetchall()
     ids = sorted({r["receipt_id"] for r in rows})
     review_ids = {r["receipt_id"] for r in rows if r["needs_review"]}
@@ -122,8 +143,8 @@ def find_items(conn, query: str, start: str | None = None, end: str | None = Non
 
 
 def list_receipts(conn, start: str | None = None, end: str | None = None, merchant: str | None = None, limit: int = 50) -> QueryResult:
-    """Individual receipts, newest first."""
-    where, params = _where(start, end, merchant)
+    """Individual receipts, newest first. Includes receipts with no readable total."""
+    where, params = _where(start, end, merchant, require_total=False)
     rows = conn.execute(
         f"""SELECT id, merchant, purchase_date, total_cents, needs_review FROM receipts
             WHERE {where} ORDER BY purchase_date DESC, id DESC LIMIT ?""",

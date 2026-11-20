@@ -23,6 +23,14 @@ TODAY = date(2026, 10, 15)
         (dict(period="last_n_days", n_days=7), ("2026-10-09", "2026-10-15")),
         (dict(period="all"), (None, None)),
         (dict(period="month"), (None, None)),  # month missing -> fall back to all time, don't crash
+        (dict(period="range", start="2026-09-01", end="2026-09-30"), ("2026-09-01", "2026-09-30")),
+        (dict(period="range", start="2026-09-30", end="2026-09-01"), ("2026-09-01", "2026-09-30")),  # reversed
+        (dict(period="range", start="2026-9-1", end="30 Sept"), (None, None)),  # not ISO: would match nothing as text
+        (dict(period="range", start="2026-09-01"), (None, None)),
+        (dict(period="last_n_days", n_days=-5), (None, None)),
+        (dict(period="last_n_days", n_days=3000000000000000), (None, None)),  # measured live; overflowed timedelta
+        (dict(period="year", year=99999), (None, None)),  # date() would raise
+        (dict(period="month", month=9, year=0), ("2026-09-01", "2026-09-30")),  # junk year ignored, month kept
     ],
 )
 def test_resolve_period(kw, expected):
@@ -96,6 +104,26 @@ def test_todays_date_in_answer_is_not_grounded(monkeypatch):
     res = QueryResult(rows=[{"item": "COFFEE", "quantity": None, "line_total": "82000", "merchant": None, "date": None, "receipt_id": 5}], receipt_ids=[5])
     text, used_llm = ask_mod.answer("Did I buy coffee?", Route(tool="find_items", period="all", item="coffee"), res, "all time", date(2026, 10, 15))
     assert not used_llm and "2026" not in text and "None" not in text and "82000" in text
+
+
+def test_find_items_without_an_item_asks_instead_of_matching_everything(monkeypatch):
+    from decimal import Decimal
+
+    from receipt_ai import ask as ask_mod
+    from receipt_ai import db
+    from receipt_ai.schema import LineItem, Receipt
+
+    conn = db.connect(":memory:")
+    r = Receipt(merchant="Shop", total=Decimal("10"), items=[LineItem(name="Bread", line_total=Decimal("10"))])
+    db.save_receipt(conn, r, file_path="a.jpg", sha256="a", ocr_lines=[], raw_json="{}")
+    monkeypatch.setattr(ask_mod, "_chat", lambda *a, **k: pytest.fail("nothing to phrase without an item"))
+
+    route = Route(tool="find_items", period="all")  # the router's item was not in the question
+    result, period_text = ask_mod.run_tool(conn, route, TODAY)
+    assert result.rows == [] and result.receipt_ids == []
+    text, used_llm = ask_mod.answer("What did I buy?", route, result, period_text, TODAY)
+    assert not used_llm and "which item" in text
+    conn.close()
 
 
 def test_review_note_is_appended_by_python():

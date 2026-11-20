@@ -16,6 +16,8 @@ import requests
 import streamlit as st
 
 API = os.environ.get("API_URL", "http://localhost:8765")
+# Same key the API checks, if one is set (see api.require_token).
+HEADERS = {"X-API-Key": t} if (t := os.environ.get("RECEIPTS_API_TOKEN")) else {}
 BLUE = "#2a78d6"  # one series -> one hue, no legend (the title names it)
 
 st.set_page_config(page_title="Receipt Intelligence", page_icon="🧾", layout="wide")
@@ -23,7 +25,7 @@ st.set_page_config(page_title="Receipt Intelligence", page_icon="🧾", layout="
 
 def api(method: str, path: str, **kw):
     try:
-        r = requests.request(method, f"{API}{path}", timeout=kw.pop("timeout", 30), **kw)
+        r = requests.request(method, f"{API}{path}", timeout=kw.pop("timeout", 30), headers=HEADERS, **kw)
     except requests.RequestException as e:
         st.error(f"Can't reach the API at {API} ({type(e).__name__}). Is it running?")
         st.stop()
@@ -69,7 +71,7 @@ def show_citation(receipt_id: int) -> None:
         if r["file_name"].lower().endswith(".pdf"):
             left.caption(f"PDF: {r['file_name']}")
         else:
-            img = requests.get(f"{API}/receipts/{receipt_id}/file", timeout=30)
+            img = requests.get(f"{API}/receipts/{receipt_id}/file", timeout=30, headers=HEADERS)
             if img.ok:
                 left.image(img.content, use_container_width=True)
         for issue in r["issues"]:

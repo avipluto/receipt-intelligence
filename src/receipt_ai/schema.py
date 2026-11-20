@@ -69,6 +69,7 @@ def parse_amount(text: str | None) -> Decimal | None:
       both present        -> the one appearing last is the decimal point   1,250.50 | 1.250,50
       one kind, repeated  -> thousands separator                           1,565,938
       one kind, once, followed by exactly 3 digits -> thousands            60.000 (IDR) | 10,000
+        ...unless nothing but zeros comes before it -> decimal point       0.500 (kg) | 0,250
       one kind, once, otherwise                    -> decimal point        552.30 | 4,5
     """
     if not text:
@@ -86,7 +87,10 @@ def parse_amount(text: str | None) -> Decimal | None:
     elif "," in s or "." in s:
         sep = "," if "," in s else "."
         parts = s.split(sep)
-        if len(parts) > 2 or len(parts[-1]) == 3:
+        # A thousands group needs a non-zero number in front of it: "0.500" is half a
+        # kilo, not five hundred. Without this a weighed item's quantity came out 1000x.
+        leading_zero = len(parts) == 2 and not parts[0].strip("0")
+        if len(parts) > 2 or (len(parts[-1]) == 3 and not leading_zero):
             s = s.replace(sep, "")
         else:
             s = s.replace(sep, ".")
@@ -100,7 +104,19 @@ def parse_amount(text: str | None) -> Decimal | None:
 _DATE_FORMATS = [
     "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%d-%m-%y", "%d.%m.%y",
     "%d %b %Y", "%d %B %Y", "%d-%b-%Y", "%d-%b-%y", "%b %d, %Y", "%Y/%m/%d",
+    "%d %b %y", "%d/%b/%Y", "%B %d, %Y", "%b %d %Y", "%Y.%m.%d",
 ]
+# A numeric date sitting inside other words: "Date: 14/09/2026", "Mon 14-09-26 (Bill 12)".
+_NUMERIC_DATE = re.compile(r"(?<!\d)\d{1,4}([/.\-])\d{1,2}\1\d{1,4}(?!\d)")
+
+
+def _try_formats(text: str) -> dt.date | None:
+    for fmt in _DATE_FORMATS:
+        try:
+            return dt.datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def parse_date(text: str | None) -> dt.date | None:
@@ -109,12 +125,11 @@ def parse_date(text: str | None) -> dt.date | None:
         return None
     # Keep only the date part: drop times like "18:42" and extra words.
     cleaned = re.sub(r"\d{1,2}:\d{2}(:\d{2})?\s*(am|pm)?", "", text, flags=re.I).strip(" ,")
-    for fmt in _DATE_FORMATS:
-        try:
-            return dt.datetime.strptime(cleaned, fmt).date()
-        except ValueError:
-            continue
-    return None
+    parsed = _try_formats(cleaned)
+    if parsed is None and (m := _NUMERIC_DATE.search(cleaned)):
+        # The model sometimes copies the label along with the value ("Date: 14/09/2026").
+        parsed = _try_formats(m.group(0))
+    return parsed
 
 
 # ---------------------------------------------------------------- clean record

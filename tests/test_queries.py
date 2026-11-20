@@ -56,6 +56,17 @@ def test_spend_by_merchant_ranks_largest_first(conn):
     assert [r["total"] for r in rows] == sorted((r["total"] for r in rows), reverse=True)
 
 
+def test_spend_by_merchant_merges_case_and_spacing_variants():
+    c = db.connect(":memory:")
+    for i, (merchant, total) in enumerate([("Cafe", "10.00"), ("CAFE", "20.00"), ("cafe ", "5.00"), ("Bakery", "30.00")]):
+        db.save_receipt(c, Receipt(merchant=merchant, total=Decimal(total)), file_path=f"{i}.jpg", sha256=str(i), ocr_lines=[], raw_json="{}")
+    rows = queries.spend_by_merchant(c).rows
+    assert [(r["merchant"].lower(), r["receipts"], r["total"]) for r in rows] == [
+        ("cafe", 3, Decimal("35.00")), ("bakery", 1, Decimal("30.00")),
+    ]
+    c.close()
+
+
 def test_spend_by_month_reports_undated_receipts(conn):
     r = queries.spend_by_month(conn)
     assert [(x["month"], x["total"]) for x in r.rows] == [("2026-09", Decimal("892.30")), ("2026-10", Decimal("180.00"))]
@@ -77,6 +88,25 @@ def test_sql_injection_in_arguments_is_just_text(conn):
     r = queries.total_spent(conn, merchant="x' OR '1'='1")
     assert r.rows[0]["receipts"] == 0
     assert conn.execute("SELECT COUNT(*) FROM receipts").fetchone()[0] == 5
+
+
+def test_list_receipts_includes_receipts_without_a_total(conn):
+    # "no total found" is the most serious review flag; hiding those receipts from the
+    # list meant they could never be opened and checked.
+    r = Receipt(merchant="Torn receipt", date=date(2026, 10, 5), issues=["no total found"])
+    rid, _ = db.save_receipt(conn, r, file_path="torn.jpg", sha256="torn", ocr_lines=[], raw_json="{}")
+    listed = {x["receipt_id"]: x for x in queries.list_receipts(conn).rows}
+    assert listed[rid]["total"] is None and listed[rid]["needs_review"]
+    # Sums are unchanged: a receipt with no total adds nothing and is not cited.
+    assert rid not in queries.total_spent(conn).receipt_ids
+
+
+def test_like_wildcards_in_search_terms_are_literal(conn):
+    # "%" and "_" used to act as wildcards and match every merchant / item.
+    assert queries.total_spent(conn, merchant="%").rows[0]["receipts"] == 0
+    assert queries.total_spent(conn, merchant="B_g Bazaar").rows[0]["receipts"] == 0
+    assert queries.find_items(conn, "_").rows == []
+    assert queries.total_spent(conn, merchant="#1142").rows[0]["receipts"] == 1
 
 
 def test_to_dict_is_json_safe(conn):
