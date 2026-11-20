@@ -79,12 +79,17 @@ def total_spent(conn, start: str | None = None, end: str | None = None, merchant
 
 
 def spend_by_merchant(conn, start: str | None = None, end: str | None = None, top_n: int = 10) -> QueryResult:
-    """Spending grouped by merchant, largest first."""
+    """Spending grouped by merchant, largest first.
+
+    "Cafe", "CAFE" and "cafe " are one shop printed three ways (OCR and the model both
+    vary the case), so the grouping ignores case and outer spaces.
+    """
     where, params = _where(start, end, None)
+    name = "TRIM(COALESCE(merchant, 'Unknown'))"
     rows = conn.execute(
-        f"""SELECT COALESCE(merchant, 'Unknown') AS merchant, COUNT(*) AS receipts, SUM(total_cents) AS cents
+        f"""SELECT MIN({name}) AS merchant, COUNT(*) AS receipts, SUM(total_cents) AS cents
             FROM receipts WHERE {where}
-            GROUP BY COALESCE(merchant, 'Unknown') ORDER BY cents DESC LIMIT ?""",
+            GROUP BY {name} COLLATE NOCASE ORDER BY cents DESC, merchant LIMIT ?""",
         [*params, top_n],
     ).fetchall()
     ids, review = _cited(conn, where, params)

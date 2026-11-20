@@ -56,6 +56,17 @@ def test_spend_by_merchant_ranks_largest_first(conn):
     assert [r["total"] for r in rows] == sorted((r["total"] for r in rows), reverse=True)
 
 
+def test_spend_by_merchant_merges_case_and_spacing_variants():
+    c = db.connect(":memory:")
+    for i, (merchant, total) in enumerate([("Cafe", "10.00"), ("CAFE", "20.00"), ("cafe ", "5.00"), ("Bakery", "30.00")]):
+        db.save_receipt(c, Receipt(merchant=merchant, total=Decimal(total)), file_path=f"{i}.jpg", sha256=str(i), ocr_lines=[], raw_json="{}")
+    rows = queries.spend_by_merchant(c).rows
+    assert [(r["merchant"].lower(), r["receipts"], r["total"]) for r in rows] == [
+        ("cafe", 3, Decimal("35.00")), ("bakery", 1, Decimal("30.00")),
+    ]
+    c.close()
+
+
 def test_spend_by_month_reports_undated_receipts(conn):
     r = queries.spend_by_month(conn)
     assert [(x["month"], x["total"]) for x in r.rows] == [("2026-09", Decimal("892.30")), ("2026-10", Decimal("180.00"))]
