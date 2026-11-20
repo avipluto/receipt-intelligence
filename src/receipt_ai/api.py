@@ -31,7 +31,7 @@ from pathlib import Path
 import requests
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from . import db, pipeline, queries
 from .ask import ask
@@ -184,6 +184,10 @@ def delete_receipt(receipt_id: int, conn: sqlite3.Connection = Depends(get_conn)
 
 
 class Question(BaseModel):
+    # Strip first, then measure: "      " is not a three-character question, and it
+    # would otherwise cost a full LLM call to find that out.
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     question: str = Field(min_length=3, max_length=500)
 
 

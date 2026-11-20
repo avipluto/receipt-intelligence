@@ -74,6 +74,22 @@ def test_ask_returns_answer_and_citations(client, monkeypatch):
     assert "120.00" in body["answer"] and body["receipt_ids"] == [rid] and not body["used_llm"]
 
 
+def test_blank_question_is_rejected_before_the_llm(client, monkeypatch):
+    from receipt_ai import ask as ask_mod
+
+    monkeypatch.setattr(ask_mod, "route", lambda q, today: pytest.fail("a blank question must not reach the LLM"))
+    assert client.post("/ask", json={"question": "      "}).status_code == 422
+    assert client.post("/ask", json={"question": " a "}).status_code == 422
+
+
+def test_question_is_trimmed(client, monkeypatch):
+    from receipt_ai import ask as ask_mod
+
+    monkeypatch.setattr(ask_mod, "route", lambda q, today: Route(tool="total_spent", period="all"))
+    body = client.post("/ask", json={"question": "  How much did I spend?  "}).json()
+    assert body["question"] == "How much did I spend?"
+
+
 def test_stats_endpoints(client):
     client.post("/receipts", files={"file": ("r.pdf", _pdf_bytes("Cafe receipt  Coffee 100.00  TOTAL 120.00"), "application/pdf")})
     assert client.get("/stats/monthly").json()["rows"] == [{"month": "2026-09", "receipts": 1, "total": "120.00"}]
