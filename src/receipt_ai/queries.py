@@ -32,6 +32,18 @@ class QueryResult:
         return d
 
 
+def _like(term: str) -> str:
+    """Substring pattern for LIKE, with the term's own % and _ taken literally.
+
+    Without this, asking about a merchant called "%" (or an item "_") matched every row.
+    """
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+_ESCAPE = "ESCAPE '\\'"  # goes after every LIKE that takes a _like() pattern
+
+
 def _where(start: str | None, end: str | None, merchant: str | None, prefix: str = "") -> tuple[str, list]:
     """Build a parameterised WHERE clause. Values always go in `params`, never into the SQL text."""
     p = prefix
@@ -44,8 +56,9 @@ def _where(start: str | None, end: str | None, merchant: str | None, prefix: str
         params.append(end)
     if merchant:
         # Case-insensitive substring: "bazaar" matches "BIG BAZAAR #1142".
-        clauses.append(f"{p}merchant LIKE ? COLLATE NOCASE")
-        params.append(f"%{merchant}%")
+        # (LIKE already ignores ASCII case in SQLite.)
+        clauses.append(f"{p}merchant LIKE ? {_ESCAPE}")
+        params.append(_like(merchant))
     return " AND ".join(clauses), params
 
 
@@ -105,9 +118,9 @@ def find_items(conn, query: str, start: str | None = None, end: str | None = Non
     rows = conn.execute(
         f"""SELECT i.name, i.quantity, i.line_total_cents, r.id AS receipt_id, r.merchant, r.purchase_date, r.needs_review
             FROM items i JOIN receipts r ON r.id = i.receipt_id
-            WHERE {where} AND i.name LIKE ? COLLATE NOCASE
+            WHERE {where} AND i.name LIKE ? {_ESCAPE}
             ORDER BY r.purchase_date, r.id LIMIT ?""",
-        [*params, f"%{query}%", limit],
+        [*params, _like(query), limit],
     ).fetchall()
     ids = sorted({r["receipt_id"] for r in rows})
     review_ids = {r["receipt_id"] for r in rows if r["needs_review"]}

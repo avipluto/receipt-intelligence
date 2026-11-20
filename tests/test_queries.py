@@ -79,6 +79,14 @@ def test_sql_injection_in_arguments_is_just_text(conn):
     assert conn.execute("SELECT COUNT(*) FROM receipts").fetchone()[0] == 5
 
 
+def test_like_wildcards_in_search_terms_are_literal(conn):
+    # "%" and "_" used to act as wildcards and match every merchant / item.
+    assert queries.total_spent(conn, merchant="%").rows[0]["receipts"] == 0
+    assert queries.total_spent(conn, merchant="B_g Bazaar").rows[0]["receipts"] == 0
+    assert queries.find_items(conn, "_").rows == []
+    assert queries.total_spent(conn, merchant="#1142").rows[0]["receipts"] == 1
+
+
 def test_to_dict_is_json_safe(conn):
     import json
 
