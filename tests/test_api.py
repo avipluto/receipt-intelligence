@@ -61,6 +61,32 @@ def test_missing_receipt_is_404(client):
     assert client.delete("/receipts/999").status_code == 404
 
 
+def test_delete_removes_the_stored_upload(client, tmp_path):
+    pdf = _pdf_bytes("Cafe receipt  Coffee 100.00  TOTAL 120.00")
+    rid = client.post("/receipts", files={"file": ("r.pdf", pdf, "application/pdf")}).json()["receipt_id"]
+    stored = list((tmp_path / "uploads").iterdir())
+    assert len(stored) == 1
+
+    assert client.delete(f"/receipts/{rid}").status_code == 204
+    assert client.get(f"/receipts/{rid}").status_code == 404
+    assert not stored[0].exists()
+    # Uploading it again after a delete works: it is a new receipt, not a "duplicate".
+    again = client.post("/receipts", files={"file": ("r.pdf", pdf, "application/pdf")}).json()
+    assert again["created"] and not again["duplicate"]
+
+
+def test_delete_never_touches_files_outside_the_upload_dir(client, tmp_path):
+    # Receipts ingested from the command line point at the user's own file.
+    original = tmp_path / "my-own-scan.pdf"
+    original.write_bytes(_pdf_bytes("Cafe receipt  Coffee 100.00  Tax 20.00  TOTAL 120.00"))
+    conn = api.db.connect(api.DB_PATH)
+    rid = pipeline.ingest(original, conn).receipt_id
+    conn.close()
+
+    assert client.delete(f"/receipts/{rid}").status_code == 204
+    assert original.exists()
+
+
 def test_ask_returns_answer_and_citations(client, monkeypatch):
     pdf = _pdf_bytes("Cafe receipt  Coffee 100.00  TOTAL 120.00")
     rid = client.post("/receipts", files={"file": ("r.pdf", pdf, "application/pdf")}).json()["receipt_id"]

@@ -174,10 +174,26 @@ def get_receipt_file(receipt_id: int, conn: sqlite3.Connection = Depends(get_con
 
 @app.delete("/receipts/{receipt_id}", status_code=204)
 def delete_receipt(receipt_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> None:
-    with conn:
-        cur = conn.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))  # items cascade
-    if cur.rowcount == 0:
+    row = conn.execute("SELECT file_path FROM receipts WHERE id = ?", (receipt_id,)).fetchone()
+    if row is None:
         raise HTTPException(404, "no such receipt")
+    with conn:
+        conn.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))  # items cascade
+    # Deleting a receipt should not leave its photo behind on disk.
+    _remove_upload(Path(row["file_path"]))
+
+
+def _remove_upload(path: Path) -> None:
+    """Delete the copy the API stored for an upload.
+
+    Only files directly inside UPLOAD_DIR are touched. A receipt ingested from the
+    command line points at the user's own original, which is not ours to remove.
+    """
+    try:
+        if path.resolve().parent == UPLOAD_DIR.resolve():
+            path.unlink(missing_ok=True)
+    except OSError:
+        pass  # the row is already gone; a leftover file is harmless
 
 
 # ---------------------------------------------------------------- questions and charts
